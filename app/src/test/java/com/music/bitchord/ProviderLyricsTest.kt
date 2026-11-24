@@ -9,6 +9,7 @@ import com.music.bitchord.data.lyrics.LyricWord
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.lyrics.ProviderLyrics
 import com.music.bitchord.data.lyrics.PaxSenix
+import com.music.bitchord.data.lyrics.normalizeBetterLyricsApiKey
 import com.music.bitchord.data.lyrics.normalizePaxSenixApiKey
 import com.music.bitchord.data.lyrics.toEnhancedLrc
 import com.music.bitchord.data.lyrics.youtubeStrings
@@ -113,6 +114,18 @@ class ProviderLyricsTest {
         assertEquals("secret", normalizePaxSenixApiKey(" secret "))
         assertEquals("secret", normalizePaxSenixApiKey("Bearer secret"))
         assertEquals("secret", normalizePaxSenixApiKey("bearer   secret "))
+    }
+
+    @Test
+    fun `BetterLyrics accepts bare and bearer-prefixed API keys and escaped TTML`() {
+        assertEquals("bl_secret", normalizeBetterLyricsApiKey(" bl_secret "))
+        assertEquals("bl_secret", normalizeBetterLyricsApiKey("Bearer bl_secret"))
+        assertEquals("bl_secret", normalizeBetterLyricsApiKey("bearer   bl_secret "))
+
+        val raw = """{"ttml":"\u003ctt xmlns=\"http://www.w3.org/ns/ttml\" itunes:timing=\"Word\"\u003e\u003cbody\u003e\u003cdiv\u003e\u003cp begin=\"1.000\" end=\"2.500\"\u003e\u003cspan begin=\"1.000\" end=\"1.700\"\u003eHello\u003c/span\u003e \u003cspan begin=\"1.700\" end=\"2.500\"\u003eworld\u003c/span\u003e\u003c/p\u003e\u003c/div\u003e\u003c/body\u003e\u003c/tt\u003e"}"""
+        val lines = ProviderLyrics.parse(raw)!!.filterNot { it.isGap }
+        assertEquals("Hello world", lines.single().text)
+        assertTrue(lines.single().isWordSynced)
     }
 
     @Test

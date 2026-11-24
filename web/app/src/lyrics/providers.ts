@@ -151,7 +151,7 @@ export function betterLyricsCandidateUrls(endpoint: string, q: LyricsQuery): str
   const d = seconds(q.durationMs);
   const al = q.album?.trim() || undefined;
   const seen = new Set<string>();
-  const add = (params: Record<string, string | number | undefined>) => {
+  const add = (params: Record<string, string | number | null | undefined>) => {
     if (seen.size >= 5) return;
     seen.add(urlWith(endpoint, params));
   };
