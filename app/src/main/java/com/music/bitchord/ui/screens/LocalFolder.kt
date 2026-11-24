@@ -3,7 +3,6 @@ package com.music.bitchord.ui.screens
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +37,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -806,6 +806,18 @@ private fun TrailingGlyph(selected: Boolean, palette: ArtworkPalette) {
  * is selected — over the list rather than in it, so it stays in reach however
  * far down the selection was made.
  */
+internal data class SelectionBarColors(
+    val container: Color,
+    val checkTint: Color,
+    val countColor: Color,
+)
+
+internal fun selectionBarColors(colorScheme: ColorScheme): SelectionBarColors = SelectionBarColors(
+    container = colorScheme.surfaceVariant,
+    checkTint = colorScheme.primary,
+    countColor = colorScheme.onSurface,
+)
+
 @Composable
 internal fun LocalFolderSelectionBar(
     folder: LocalFolder,
@@ -818,13 +830,13 @@ internal fun LocalFolderSelectionBar(
     val allSelected = songs.isNotEmpty() && songs.all { it.videoId in state.selectedIds }
     fun chosen() = songs.filter { it.videoId in state.selectedIds }.also { state.clear() }
     val shape = RoundedCornerShape(14.dp)
-    val dark = isSystemInDarkTheme()
+    val barColors = selectionBarColors(MaterialTheme.colorScheme)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
             .shadow(10.dp, shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .background(barColors.container, shape)
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -832,14 +844,14 @@ internal fun LocalFolderSelectionBar(
             Icon(
                 Icons.Rounded.Check,
                 contentDescription = stringResource(R.string.select_all),
-                tint = if (dark) Color.White else MaterialTheme.colorScheme.primary,
+                tint = barColors.checkTint,
                 modifier = Modifier.size(20.dp),
             )
         }
         Text(
             text = "$count ${stringResource(R.string.selected)}",
             style = MaterialTheme.typography.titleSmall,
-            color = if (dark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = barColors.countColor,
             modifier = Modifier.weight(1f),
         )
         folder.onUpload?.let { upload ->

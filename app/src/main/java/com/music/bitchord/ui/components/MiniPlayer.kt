@@ -409,11 +409,11 @@ fun MiniPlayer(
                 } else {
                     Modifier.optimizedHazeEffect(
                         state = hazeState,
-                        style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
+                        style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
                     )
                 },
             )
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+            .border(GLASS_EDGE_WIDTH, glassEdgeColor(), shape)
             // Deliberately silent: the whole bar is the target, so it catches
             // stray taps meant for the page behind it, and the sheet rising is
             // its own confirmation. The glyphs on it still buzz.
@@ -461,17 +461,18 @@ fun MiniPlayer(
             Column(Modifier.weight(1f)) {
                 // The badge in the artist line's colour and a long line faded
                 // out at its end, as on the glass bar's mini player.
+                val secondaryColor = hazeSecondaryContentColor()
                 ExplicitSongTitle(
                     song = song,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
-                    badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    badgeColor = secondaryColor,
                     fadeOverflow = true,
                 )
                 FadingLine(
                     text = song.artist,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = secondaryColor,
                 )
             }
             if (isLoading) {

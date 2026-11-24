@@ -25,10 +25,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -45,6 +48,21 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
  * rather than its own 46dp.
  */
 val LocalSearchFieldOnSurface = staticCompositionLocalOf { false }
+
+/**
+ * Optional tint overrides for [SearchField] when hosted inside a translucent
+ * Liquid Glass or Haze pill whose backdrop is arbitrary page content rather
+ * than an opaque `surfaceVariant` container.
+ */
+@Immutable
+data class SearchFieldColors(
+    val textColor: Color,
+    val placeholderColor: Color,
+    val iconColor: Color,
+    val cursorColor: Color,
+)
+
+val LocalSearchFieldColors = compositionLocalOf<SearchFieldColors?> { null }
 
 /**
  * The pill-shaped search field used at the top of the search page — a
@@ -65,6 +83,11 @@ fun SearchField(
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val customColors = LocalSearchFieldColors.current
+    val textColor = customColors?.textColor ?: MaterialTheme.colorScheme.onBackground
+    val placeholderColor = customColors?.placeholderColor ?: MaterialTheme.colorScheme.onSurfaceVariant
+    val iconColor = customColors?.iconColor ?: MaterialTheme.colorScheme.onSurfaceVariant
+    val cursorColor = customColors?.cursorColor ?: MaterialTheme.colorScheme.primary
     // Both ways of saying "search this" do the same two things, so they're
     // written once here rather than twice.
     val submit = {
@@ -97,7 +120,7 @@ fun SearchField(
         Icon(
             Icons.Rounded.Search,
             contentDescription = stringResource(Res.string.search),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = iconColor,
             modifier = Modifier
                 .size(32.dp)
                 .clip(CircleShape)
@@ -110,7 +133,7 @@ fun SearchField(
                 Text(
                     text = placeholder,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = placeholderColor,
                     // A narrow field (the phone's, beside the account photo)
                     // must cut the hint short, not wrap it out of the pill.
                     maxLines = 1,
@@ -122,9 +145,9 @@ fun SearchField(
                 onValueChange = onQueryChange,
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = textColor,
                 ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                cursorBrush = SolidColor(cursorColor),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { submit() }),
                 modifier = Modifier
@@ -151,7 +174,7 @@ fun SearchField(
                 Icon(
                     Icons.Rounded.Close,
                     contentDescription = stringResource(Res.string.clear_search),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = iconColor,
                     modifier = Modifier.size(18.dp),
                 )
             }

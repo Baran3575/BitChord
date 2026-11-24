@@ -98,6 +98,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -180,6 +181,7 @@ import com.music.bitchord.ui.components.trackColumnWidth
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.ui.graphics.ColorUtils
 import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
 import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
@@ -629,6 +631,7 @@ fun DetailScreen(
             if (songs.isNotEmpty() && isArtist) {
                 item(key = "actions") {
                     ActionRow(
+                        palette = palette,
                         onPlay = { onPlay(songs) },
                         onShuffle = { onShuffle(songs) },
                         subscription = page.subscription?.takeIf { onToggleSubscription != null },
@@ -1124,6 +1127,7 @@ private fun ReleaseHeader(
                         label = stringResource(R.string.play),
                         onClick = onPlay,
                         filled = true,
+                        palette = palette,
                         size = RELEASE_SIDE_BUTTON,
                         modifier = Modifier.weight(1f),
                     )
@@ -1132,6 +1136,7 @@ private fun ReleaseHeader(
                         label = stringResource(R.string.shuffle),
                         onClick = onShuffle,
                         filled = false,
+                        palette = palette,
                         size = RELEASE_SIDE_BUTTON,
                         modifier = Modifier.weight(1f),
                     )
@@ -1142,6 +1147,7 @@ private fun ReleaseHeader(
                             icon = Icons.Rounded.Download,
                             contentDescription = stringResource(R.string.download_all),
                             onClick = it,
+                            palette = palette,
                             size = RELEASE_SIDE_BUTTON,
                         )
                     }
@@ -1151,6 +1157,7 @@ private fun ReleaseHeader(
                     icon = BitChordIcons.Shuffle,
                     contentDescription = stringResource(R.string.shuffle),
                     onClick = onShuffle,
+                    palette = palette,
                     haptic = Haptic.Resume,
                     size = RELEASE_SIDE_BUTTON,
                 )
@@ -1159,6 +1166,7 @@ private fun ReleaseHeader(
                     label = stringResource(R.string.play),
                     onClick = onPlay,
                     filled = true,
+                    palette = palette,
                     size = RELEASE_SIDE_BUTTON,
                     modifier = Modifier.weight(1f),
                 )
@@ -1173,6 +1181,7 @@ private fun ReleaseHeader(
                             stringResource(R.string.add_to_library)
                         },
                         onClick = { onToggleLibrary?.invoke() },
+                        palette = palette,
                         haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
                         size = RELEASE_SIDE_BUTTON,
                     )
@@ -1183,6 +1192,7 @@ private fun ReleaseHeader(
                         icon = BitChordIcons.Plus,
                         contentDescription = stringResource(R.string.add_to_library),
                         onClick = {},
+                        palette = palette,
                         size = RELEASE_SIDE_BUTTON,
                         enabled = false,
                     )
@@ -1232,7 +1242,7 @@ private fun DetailSearchField(
             .height(46.dp)
             .clip(PILL_SHAPE)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), PILL_SHAPE)
+            .border(0.5.dp, palette.border, PILL_SHAPE)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1363,7 +1373,7 @@ private fun ArtistHeader(
         // inverted plate. Scanned photos (jpeg/png) keep their own pixels:
         // tinting an opaque light scan would flatten it into a white blob.
         val tint = if (logoUrl == null && signature?.format == "svg") {
-            ColorFilter.tint(Color.White)
+            ColorFilter.tint(palette.signatureInk)
         } else {
             null
         }
@@ -1388,14 +1398,14 @@ private fun ArtistHeader(
             // Vectors decode small (Charlie Puth's is 213px) and would upscale
             // ~3x into a blur, so SVGs render large; rasters keep ORIGINAL
             // since decoding past their pixels only spends memory.
-            val request = remember(imageUrl, attempt) {
+            val request = remember(imageUrl, attempt, palette.signatureInk) {
                 ImageRequest.Builder(context).data(imageUrl).apply {
                     if (isSignatureSvg) {
                         size(SVG_DECODE_WIDTH, (SVG_DECODE_WIDTH / aspect).roundToInt())
                     } else {
                         size(coil3.size.Size.ORIGINAL)
                     }
-                    if (isSignatureScan) transformations(SignatureInkTransformation)
+                    if (isSignatureScan) transformations(SignatureInkTransformation(palette.signatureInk))
                 }.build()
             }
             // A dropped fetch gets two more tries before the name is left in place.
@@ -1611,15 +1621,25 @@ private val SOFT_FOOT_BLUR = 48.dp
  * The star is the page's existing subscribe toggle. Where the page offers none
  * (a guest) it stays, greyed out and untappable, so Play keeps the middle.
  */
+internal fun resolvePlayCircleColor(playColor: Color?, palette: ArtworkPalette): Color {
+    if (playColor == null) return palette.container
+    return if (ColorUtils.calculateContrast(playColor.toArgb(), palette.wash.toArgb()) >= 3.0) {
+        playColor
+    } else {
+        palette.container
+    }
+}
+
 @Composable
 private fun ActionRow(
+    palette: ArtworkPalette,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
     bottomSpace: Dp = 22.dp,
     /** The artist header's subscribe state, or null where it isn't offered. */
     subscription: SubscriptionState? = null,
     onToggleSubscription: (() -> Unit)? = null,
-    /** Apple's fill for the Play circle; null leaves it white. */
+    /** Apple's fill for the Play circle; null or low-contrast falls back to [ArtworkPalette.container]. */
     playColor: Color? = null,
 ) {
     Row(
@@ -1633,6 +1653,7 @@ private fun ActionRow(
             icon = BitChordIcons.Shuffle,
             contentDescription = stringResource(R.string.shuffle),
             onClick = onShuffle,
+            palette = palette,
             haptic = Haptic.Resume,
             size = ARTIST_SIDE_BUTTON,
         )
@@ -1641,7 +1662,7 @@ private fun ActionRow(
             onClick = onPlay,
             size = ARTIST_PLAY_BUTTON,
             iconScale = ARTIST_PLAY_ICON_SCALE,
-            containerColor = playColor ?: Color.White,
+            containerColor = resolvePlayCircleColor(playColor, palette),
         )
 
         if (subscription != null) {
@@ -1651,6 +1672,7 @@ private fun ActionRow(
                     if (subscription.subscribed) R.string.unsubscribe else R.string.subscribe,
                 ),
                 onClick = { onToggleSubscription?.invoke() },
+                palette = palette,
                 haptic = if (subscription.subscribed) Haptic.ToggleOff else Haptic.ToggleOn,
                 size = ARTIST_SIDE_BUTTON,
             )
@@ -1659,6 +1681,7 @@ private fun ActionRow(
                 icon = Icons.Rounded.StarBorder,
                 contentDescription = stringResource(R.string.subscribe),
                 onClick = {},
+                palette = palette,
                 size = ARTIST_SIDE_BUTTON,
                 enabled = false,
             )
@@ -1668,10 +1691,10 @@ private fun ActionRow(
 }
 
 /**
- * A labelled pill in the release page's action row. [filled] is Play: white
- * with black content, so the primary action survives every palette, filling
- * whatever width the row leaves it. Otherwise it wears the light veil and glass
- * rim of the circles beside it — Shuffle, on a page with no Add to sit opposite.
+ * A labelled pill in the release page's action row. [filled] is Play: polarity-
+ * matched high-contrast [ArtworkPalette.container] with [ArtworkPalette.onContainer]
+ * ink, so the primary action survives both dark and pale detail pages. Otherwise
+ * it wears the palette's veil and rim like the circles beside it.
  */
 @Composable
 private fun ActionPill(
@@ -1679,25 +1702,26 @@ private fun ActionPill(
     label: String,
     onClick: () -> Unit,
     filled: Boolean,
+    palette: ArtworkPalette,
     modifier: Modifier = Modifier,
     size: Dp = 50.dp,
 ) {
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
     val haptics = rememberHaptics()
-    val content = if (filled) Color.Black else MaterialTheme.colorScheme.onSurface
+    val content = if (filled) palette.onContainer else palette.onBackground
     Row(
         modifier = modifier
             .height(size)
             .clip(CircleShape)
             .then(
                 if (filled) {
-                    Modifier.background(Color.White)
+                    Modifier.background(palette.container)
                 } else {
                     Modifier
-                        .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+                        .background(palette.veil, CircleShape)
                         .liquidGlassRim(CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+                        .border(1.dp, palette.border, CircleShape)
                 },
             )
             .clickable {
@@ -1786,6 +1810,7 @@ private fun CircleIconButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    palette: ArtworkPalette,
     haptic: Haptic = Haptic.Tap,
     size: Dp = 50.dp,
     /**
@@ -1801,11 +1826,11 @@ private fun CircleIconButton(
             .size(size)
             .alpha(if (enabled) 1f else DISABLED_ACTION_ALPHA)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+            .background(palette.veil, CircleShape)
             // The glass rim the floating bars wear, with Liquid Glass on. Rim
             // only: over the page's flat tint a blurred fill would look the same.
             .liquidGlassRim(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+            .border(1.dp, palette.border, CircleShape)
             .clickable(enabled = enabled) {
                 haptics.play(haptic)
                 onClick()
@@ -1815,7 +1840,7 @@ private fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = palette.onBackground,
             modifier = Modifier.size(size * 0.44f),
         )
     }
@@ -1935,13 +1960,13 @@ private fun AboutSignature(
     val context = LocalPlatformContext.current
     val isSvg = signature.format == "svg"
     val aspect = signature.aspect.coerceIn(0.4f, 6f)
-    val request = remember(signature.imageUrl) {
+    val request = remember(signature.imageUrl, palette.signatureInk) {
         ImageRequest.Builder(context).data(signature.imageUrl).apply {
             if (isSvg) {
                 size(SVG_DECODE_WIDTH, (SVG_DECODE_WIDTH / aspect).roundToInt())
             } else {
                 size(coil3.size.Size.ORIGINAL)
-                transformations(SignatureInkTransformation)
+                transformations(SignatureInkTransformation(palette.signatureInk))
             }
         }.build()
     }
@@ -1954,7 +1979,7 @@ private fun AboutSignature(
             model = request,
             contentDescription = name,
             contentScale = ContentScale.Fit,
-            colorFilter = if (isSvg) ColorFilter.tint(Color.White) else null,
+            colorFilter = if (isSvg) ColorFilter.tint(palette.signatureInk) else null,
             onState = { if (it is AsyncImagePainter.State.Success) loaded = true },
             modifier = Modifier
                 .padding(top = 20.dp, bottom = 6.dp)
@@ -2264,8 +2289,8 @@ private fun TopReleaseCard(
             // A light veil rather than the dark glass: Apple's containers read
             // slightly white against the page, and a dark panel reads as a hole.
             .clip(shape)
-            .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), shape)
-            .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), shape)
+            .background(palette.veil, shape)
+            .border(1.dp, palette.border, shape)
             .clip(shape)
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(
@@ -2282,7 +2307,7 @@ private fun TopReleaseCard(
             modifier = Modifier
                 .size(96.dp)
                 .clip(coverShape)
-                .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_COVER_EDGE_ALPHA), coverShape)
+                .border(1.dp, palette.coverBorder, coverShape)
                 .background(palette.elevated),
         )
         Spacer(Modifier.width(12.dp))
@@ -2322,8 +2347,8 @@ private fun TopReleaseCard(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
-                    .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+                    .background(palette.veil, CircleShape)
+                    .border(1.dp, palette.border, CircleShape)
                     .clickable {
                         haptics.play(if (saved) Haptic.ToggleOff else Haptic.ToggleOn)
                         onToggleSaved()
@@ -2335,7 +2360,7 @@ private fun TopReleaseCard(
                     contentDescription = stringResource(
                         if (saved) R.string.remove_from_library else R.string.add_to_library,
                     ),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = palette.onBackground,
                     modifier = Modifier.size(17.dp),
                 )
             }
@@ -2347,20 +2372,14 @@ private fun TopReleaseCard(
 private val TOP_RELEASE_CORNER = 24.dp
 private val TOP_RELEASE_INSET = 12.dp
 
-/** The panel's secondary lines, at the player's artist line's strength. */
-private const val TOP_RELEASE_SECONDARY_ALPHA = 0.55f
+/** Calibrated secondary alpha so release date and track count maintain >= 4.5:1 contrast. */
+internal const val TOP_RELEASE_SECONDARY_ALPHA = 0.75f
 
 /** The panel's title on two lines: a little under titleLarge's natural 24sp. */
 private val TOP_RELEASE_TITLE_LINE_HEIGHT = 22.sp
 
-/** The white veil under Apple-style containers and their buttons. */
-private const val LIGHT_FILL_ALPHA = 0.07f
 /** A side button this user can't use — a guest's Add or Subscribe. */
 private const val DISABLED_ACTION_ALPHA = 0.38f
-
-/** Brighter than the default 0.15 hairlines, as on Apple Music's own card. */
-private const val TOP_RELEASE_EDGE_ALPHA = 0.10f
-private const val TOP_RELEASE_COVER_EDGE_ALPHA = 0.215f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

@@ -2,13 +2,13 @@ package com.music.bitchord.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,10 +38,15 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.ui.graphics.fadingEdges
 
+internal const val THUMBNAIL_BORDER_ALPHA = 0.15f
+
+internal fun thumbnailBorderColor(colorScheme: ColorScheme): Color =
+    colorScheme.onSurface.copy(alpha = THUMBNAIL_BORDER_ALPHA)
+
 fun Modifier.thumbnailBorder(shape: Shape): Modifier = composed {
     this.border(
         width = 1.dp,
-        color = if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.15f),
+        color = thumbnailBorderColor(MaterialTheme.colorScheme),
         shape = shape
     )
 }

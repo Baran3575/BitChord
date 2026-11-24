@@ -67,6 +67,30 @@ data class ArtworkPalette(
     val onBackground: Color,
     val onBackgroundVariant: Color,
     val divider: Color,
+    /** High-contrast fill for primary actions (Play pill, Play circle). */
+    val container: Color = if (background.luminance() < 0.5f) Color.White else LIGHT_PRIMARY_CONTAINER,
+    /** Foreground ink for glyphs and labels inside [container]. */
+    val onContainer: Color = if (background.luminance() < 0.5f) Color.Black else Color.White,
+    /** Translucent fill for secondary veiled pills, circular buttons, and release cards. */
+    val veil: Color = if (background.luminance() < 0.5f) {
+        Color.White.copy(alpha = DETAIL_VEIL_ALPHA)
+    } else {
+        Color.Black.copy(alpha = DETAIL_VEIL_ALPHA)
+    },
+    /** Hairline stroke for veiled buttons, search pills, and cards on detail pages. */
+    val border: Color = if (background.luminance() < 0.5f) {
+        Color.White.copy(alpha = DETAIL_BORDER_ALPHA)
+    } else {
+        Color.Black.copy(alpha = DETAIL_BORDER_ALPHA)
+    },
+    /** Stronger hairline framing embedded album sleeves on detail cards. */
+    val coverBorder: Color = if (background.luminance() < 0.5f) {
+        Color.White.copy(alpha = DARK_COVER_BORDER_ALPHA)
+    } else {
+        Color.Black.copy(alpha = LIGHT_COVER_BORDER_ALPHA)
+    },
+    /** Polarity-matched ink for vector and scanned artist signatures. */
+    val signatureInk: Color = if (background.luminance() < 0.5f) Color.White else Color.Black,
 )
 
 /**
@@ -122,6 +146,16 @@ fun rememberArtworkPalette(
         onBackground = scheme.onBackground,
         onBackgroundVariant = scheme.onSurfaceVariant,
         divider = scheme.outline,
+        container = if (dark) Color.White else LIGHT_PRIMARY_CONTAINER,
+        onContainer = if (dark) Color.Black else Color.White,
+        veil = (if (dark) Color.White else Color.Black).copy(alpha = DETAIL_VEIL_ALPHA),
+        border = (if (dark) Color.White else Color.Black).copy(alpha = DETAIL_BORDER_ALPHA),
+        coverBorder = if (dark) {
+            Color.White.copy(alpha = DARK_COVER_BORDER_ALPHA)
+        } else {
+            Color.Black.copy(alpha = LIGHT_COVER_BORDER_ALPHA)
+        },
+        signatureInk = if (dark) Color.White else Color.Black,
     )
 
     val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront) {
@@ -139,6 +173,12 @@ fun rememberArtworkPalette(
             target.onBackgroundVariant, spec, label = "tintOnVariant",
         ).value,
         divider = animateColorAsState(target.divider, spec, label = "tintDivider").value,
+        container = animateColorAsState(target.container, spec, label = "tintContainer").value,
+        onContainer = animateColorAsState(target.onContainer, spec, label = "tintOnContainer").value,
+        veil = animateColorAsState(target.veil, spec, label = "tintVeil").value,
+        border = animateColorAsState(target.border, spec, label = "tintBorder").value,
+        coverBorder = animateColorAsState(target.coverBorder, spec, label = "tintCoverBorder").value,
+        signatureInk = animateColorAsState(target.signatureInk, spec, label = "tintSignatureInk").value,
     )
 }
 
@@ -322,24 +362,43 @@ internal fun topBandScrimAlpha(artworkLuminance: Float?): Float {
 
 private const val PLAYER_STATUS_SCRIM_MIN_ALPHA = 0.16f
 private const val PLAYER_STATUS_SCRIM_MAX_ALPHA = 0.65f
+private val LIGHT_PRIMARY_CONTAINER = Color(0xFF121212)
+internal const val DETAIL_VEIL_ALPHA = 0.07f
+internal const val DETAIL_BORDER_ALPHA = 0.14f
+internal const val DARK_COVER_BORDER_ALPHA = 0.215f
+internal const val LIGHT_COVER_BORDER_ALPHA = 0.18f
+
+internal fun buildArtworkPalette(
+    dominant: Color,
+    vibrant: Color = dominant,
+    edge: Color = dominant,
+    dark: Boolean,
+): ArtworkPalette = Seed(
+    dominant = dominant,
+    vibrant = vibrant,
+    edge = edge,
+    topBandLuminance = dominant.luminance(),
+).toPalette(dark)
 
 private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {
+    val background = dominant.withHsl(
+        saturation = { adaptedArtworkSaturation(it, minimum = 0.20f, maximum = 0.62f) },
+        lightness = { 0.13f },
+    )
+    // Follows the edge's own brightness within a band that stays clear of
+    // white body text at the top and of [background] at the bottom: a
+    // sleeve that ends dark hands over almost invisibly, one that ends
+    // bright leaves a page that is visibly lit from under the artwork.
+    val wash = edge.withHsl(
+        saturation = { adaptedArtworkSaturation(it, minimum = 0.18f, maximum = 0.58f) },
+        lightness = { it.coerceIn(0.14f, 0.24f) },
+    )
     ArtworkPalette(
         // Deep enough that white body text clears contrast on any sleeve, but
         // not so deep the hue is gone — the whole point is that the page is
         // recognisably *this* record's colour.
-        background = dominant.withHsl(
-            saturation = { adaptedArtworkSaturation(it, minimum = 0.20f, maximum = 0.62f) },
-            lightness = { 0.13f },
-        ),
-        // Follows the edge's own brightness within a band that stays clear of
-        // white body text at the top and of [background] at the bottom: a
-        // sleeve that ends dark hands over almost invisibly, one that ends
-        // bright leaves a page that is visibly lit from under the artwork.
-        wash = edge.withHsl(
-            saturation = { adaptedArtworkSaturation(it, minimum = 0.18f, maximum = 0.58f) },
-            lightness = { it.coerceIn(0.14f, 0.24f) },
-        ),
+        background = background,
+        wash = wash,
         elevated = dominant.withHsl(
             saturation = { adaptedArtworkSaturation(it, minimum = 0.20f, maximum = 0.62f) },
             lightness = { 0.22f },
@@ -352,23 +411,31 @@ private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {
         // A pale tint of the page's own hue rather than a translucent white —
         // Apple Music's secondary lines are the sleeve's colour, lifted, so a
         // blue record's credits read light blue on its blue page. Bright
-        // enough that it still clears contrast on [background].
+        // enough that it still clears contrast on [background] and [wash].
         onBackgroundVariant = dominant.withHsl(
             saturation = { adaptedArtworkSaturation(it, minimum = 0.22f, maximum = 0.50f) },
             lightness = { 0.80f },
-        ),
+        ).ensureContrastAgainst(background, wash, dark = true),
         divider = Color.White.copy(alpha = 0.12f),
+        container = Color.White,
+        onContainer = Color.Black,
+        veil = Color.White.copy(alpha = DETAIL_VEIL_ALPHA),
+        border = Color.White.copy(alpha = DETAIL_BORDER_ALPHA),
+        coverBorder = Color.White.copy(alpha = DARK_COVER_BORDER_ALPHA),
+        signatureInk = Color.White,
     )
 } else {
+    val background = dominant.withHsl(
+        saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.50f) },
+        lightness = { 0.91f },
+    )
+    val wash = edge.withHsl(
+        saturation = { adaptedArtworkSaturation(it, minimum = 0.12f, maximum = 0.46f) },
+        lightness = { it.coerceIn(0.78f, 0.90f) },
+    )
     ArtworkPalette(
-        background = dominant.withHsl(
-            saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.50f) },
-            lightness = { 0.91f },
-        ),
-        wash = edge.withHsl(
-            saturation = { adaptedArtworkSaturation(it, minimum = 0.12f, maximum = 0.46f) },
-            lightness = { it.coerceIn(0.78f, 0.90f) },
-        ),
+        background = background,
+        wash = wash,
         elevated = dominant.withHsl(
             saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.50f) },
             lightness = { 0.83f },
@@ -378,13 +445,52 @@ private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {
             lightness = { it.coerceIn(0.30f, 0.44f) },
         ),
         onBackground = Color.Black,
-        // The same hue taken down rather than up, for the pale page.
+        // The same hue taken down rather than up, for the pale page and its wash.
         onBackgroundVariant = dominant.withHsl(
             saturation = { adaptedArtworkSaturation(it, minimum = 0.22f, maximum = 0.55f) },
-            lightness = { 0.34f },
-        ),
+            lightness = { 0.28f },
+        ).ensureContrastAgainst(background, wash, dark = false),
         divider = Color.Black.copy(alpha = 0.10f),
+        container = LIGHT_PRIMARY_CONTAINER,
+        onContainer = Color.White,
+        veil = Color.Black.copy(alpha = DETAIL_VEIL_ALPHA),
+        border = Color.Black.copy(alpha = DETAIL_BORDER_ALPHA),
+        coverBorder = Color.Black.copy(alpha = LIGHT_COVER_BORDER_ALPHA),
+        signatureInk = Color.Black,
     )
+}
+
+private fun Color.ensureContrastAgainst(
+    firstSurface: Color,
+    secondSurface: Color,
+    dark: Boolean,
+    minContrast: Double = 4.55,
+): Color {
+    val bg1 = firstSurface.toArgb()
+    val bg2 = secondSurface.toArgb()
+    fun clears(argb: Int): Boolean =
+        ColorUtils.calculateContrast(argb, bg1) >= minContrast &&
+            ColorUtils.calculateContrast(argb, bg2) >= minContrast
+
+    val initial = toArgb()
+    if (clears(initial)) return this
+
+    val hsl = FloatArray(3).also { ColorUtils.colorToHSL(initial, it) }
+    var low = if (dark) hsl[2] else 0f
+    var high = if (dark) 1f else hsl[2]
+    var best = if (dark) Color.White.toArgb() else Color.Black.toArgb()
+    repeat(12) {
+        val mid = (low + high) * 0.5f
+        hsl[2] = mid
+        val candidate = ColorUtils.HSLToColor(hsl)
+        if (clears(candidate)) {
+            best = candidate
+            if (dark) high = mid else low = mid
+        } else {
+            if (dark) low = mid else high = mid
+        }
+    }
+    return Color(best)
 }
 
 /**

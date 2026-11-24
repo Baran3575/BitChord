@@ -23,7 +23,7 @@ import com.music.bitchord.data.settings.AppFont
 // spots (Replay's rank badge) that want that specific red regardless of theme.
 val AccentRed = Color(0xFFFA2D48)
 
-private val DarkColors = darkColorScheme(
+internal val DarkColors = darkColorScheme(
     primary = Color.White,
     onPrimary = Color.Black,
     background = Color.Black,
@@ -35,7 +35,7 @@ private val DarkColors = darkColorScheme(
     outline = Color(0xFF2C2C2E),
 )
 
-private val LightColors = lightColorScheme(
+internal val LightColors = lightColorScheme(
     primary = Color.Black,
     onPrimary = Color.White,
     background = Color.White,

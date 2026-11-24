@@ -22,6 +22,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +35,7 @@ import com.music.bitchord.ui.components.backdrop.effects.colorControls
 import com.music.bitchord.ui.components.backdrop.effects.lens
 import com.music.bitchord.ui.components.backdrop.highlight.Highlight
 import com.music.bitchord.ui.components.backdrop.highlight.HighlightElement
+import com.music.bitchord.ui.components.backdrop.highlight.HighlightStyle
 import com.music.bitchord.ui.components.backdrop.internal.ShapeProvider
 import com.music.bitchord.ui.components.backdrop.shadow.Shadow
 import androidx.compose.ui.unit.dp
@@ -59,13 +61,28 @@ internal val LocalGlassExport = compositionLocalOf<LayerBackdrop?> { null }
  */
 fun isGlassSupported(sdkInt: Int = Build.VERSION.SDK_INT): Boolean = sdkInt >= Build.VERSION_CODES.S
 
-/** Apple-matched defaults (Echo's GlassEffectConfig()), fixed rather than user sliders. */
+/** Apple-matched defaults (Echo's GlassEffectConfig()), with WCAG-calibrated tint floors. */
 private const val VIBRANCY = 1f
 private const val BLUR_RADIUS_DP = 8f
 private const val LENS_HEIGHT = 0.5f
 private const val LENS_AMOUNT = 0.5f
 private const val LENS_MAX_DP = 48f
-private const val SURFACE_OPACITY = 0.4f
+internal const val DARK_SURFACE_OPACITY = 0.72f
+internal const val LIGHT_SURFACE_OPACITY = 0.68f
+internal const val GLASS_SECONDARY_ALPHA = 0.78f
+internal const val GLASS_SUBTITLE_ALPHA = 0.80f
+internal const val HAZE_SECONDARY_ALPHA = 0.72f
+internal const val DARK_GLASS_EDGE_ALPHA = 0.14f
+internal const val LIGHT_GLASS_EDGE_ALPHA = 0.12f
+internal val DARK_GLASS_TINT = Color(0xFF121212)
+internal val LIGHT_GLASS_TINT = Color(0xFFFAFAFA)
+
+private val LightGlassHighlight = Highlight(
+    style = HighlightStyle.Default(
+        color = Color.Black.copy(alpha = 0.22f),
+        blendMode = DrawScope.DefaultBlendMode,
+    ),
+)
 
 /**
  * Resolution fraction the glass surface records and processes its backdrop at.
@@ -92,13 +109,39 @@ private const val FROST_RESOLUTION_SCALE = 0.25f
 /**
  * The hairline along a bar's edge, and what stands in for the glass rim
  * wherever the glass itself is not drawn.
- *
- * A surface filled with the theme's own `surface` colour has no edge of its own
- * against a dark page — it is the same near-black the page is. The glass gets
- * its edge from [Highlight], and this is that edge for everything that does not.
  */
 internal val GLASS_EDGE_WIDTH = 0.5.dp
-internal val GLASS_EDGE_COLOR = Color.White.copy(alpha = 0.10f)
+
+internal fun isLightGlassSurface(surface: Color): Boolean = surface.luminance() > 0.5f
+
+internal fun glassSurfaceTintColor(isLight: Boolean): Color =
+    if (isLight) {
+        LIGHT_GLASS_TINT.copy(alpha = LIGHT_SURFACE_OPACITY)
+    } else {
+        DARK_GLASS_TINT.copy(alpha = DARK_SURFACE_OPACITY)
+    }
+
+internal fun glassContentColor(isLight: Boolean): Color =
+    if (isLight) Color.Black else Color.White
+
+internal fun glassSecondaryContentColor(isLight: Boolean): Color =
+    glassContentColor(isLight).copy(alpha = GLASS_SECONDARY_ALPHA)
+
+internal fun glassSubtitleContentColor(isLight: Boolean): Color =
+    glassContentColor(isLight).copy(alpha = GLASS_SUBTITLE_ALPHA)
+
+internal fun hazeSecondaryContentColor(onSurface: Color): Color =
+    onSurface.copy(alpha = HAZE_SECONDARY_ALPHA)
+
+internal fun glassEdgeColor(isLight: Boolean): Color =
+    if (isLight) {
+        Color.Black.copy(alpha = LIGHT_GLASS_EDGE_ALPHA)
+    } else {
+        Color.White.copy(alpha = DARK_GLASS_EDGE_ALPHA)
+    }
+
+internal fun glassHighlight(isLight: Boolean): Highlight =
+    if (isLight) LightGlassHighlight else Highlight.Default
 
 /**
  * Icon and label colour for content sitting on a glass surface.
@@ -110,7 +153,27 @@ internal val GLASS_EDGE_COLOR = Color.White.copy(alpha = 0.10f)
  */
 @Composable
 fun glassContentColor(): Color =
-    if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) Color.Black else Color.White
+    glassContentColor(isLightGlassSurface(MaterialTheme.colorScheme.surface))
+
+/** Calibrated secondary ink for unselected 10.sp tabs and search icons/hints on glass. */
+@Composable
+fun glassSecondaryContentColor(): Color =
+    glassSecondaryContentColor(isLightGlassSurface(MaterialTheme.colorScheme.surface))
+
+/** Calibrated secondary ink for artist subtitles and explicit badges on glass. */
+@Composable
+fun glassSubtitleContentColor(): Color =
+    glassSubtitleContentColor(isLightGlassSurface(MaterialTheme.colorScheme.surface))
+
+/** Calibrated secondary ink for Haze surfaces over arbitrary artwork backdrops. */
+@Composable
+fun hazeSecondaryContentColor(): Color =
+    hazeSecondaryContentColor(MaterialTheme.colorScheme.onSurface)
+
+/** Theme-polarized hairline edge for glass, Haze, and reduced-blur bars. */
+@Composable
+fun glassEdgeColor(): Color =
+    glassEdgeColor(isLightGlassSurface(MaterialTheme.colorScheme.surface))
 
 /**
  * Selected-tab indicator colour for a glass surface: white in both themes.
@@ -122,14 +185,14 @@ fun glassContentColor(): Color =
  */
 @Composable
 fun glassIndicatorColor(): Color =
-    if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
+    if (isLightGlassSurface(MaterialTheme.colorScheme.surface)) {
         Color.White.copy(alpha = 0.5f)
     } else {
         Color.White.copy(alpha = DARK_INDICATOR_OPACITY)
     }
 
 /** The selected tab's pill in dark theme, a step whiter than the bar. */
-private const val DARK_INDICATOR_OPACITY = 0.14f
+internal const val DARK_INDICATOR_OPACITY = 0.14f
 
 /**
  * A lightweight visual match for liquid glass over a stable background.
@@ -145,29 +208,27 @@ fun Modifier.lightweightLiquidGlass(
     fallbackColor: Color,
 ): Modifier {
     val useGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
-    val glassTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
-        Color(0xFFFAFAFA)
-    } else {
-        Color(0xFF121212)
-    }
+    val isLight = isLightGlassSurface(MaterialTheme.colorScheme.surface)
+    val highlight = glassHighlight(isLight)
+    val edgeColor = glassEdgeColor(isLight)
     val shapeProvider = ShapeProvider { shape }
 
     return clip(shape)
         .background(
-            color = if (useGlass) glassTint.copy(alpha = SURFACE_OPACITY) else fallbackColor,
+            color = if (useGlass) glassSurfaceTintColor(isLight) else fallbackColor,
             shape = shape,
         )
         .then(
             if (useGlass) {
                 HighlightElement(
                     shapeProvider = shapeProvider,
-                    highlight = { Highlight.Default },
+                    highlight = { highlight },
                 )
             } else {
                 Modifier
             },
         )
-        .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+        .border(GLASS_EDGE_WIDTH, edgeColor, shape)
 }
 
 /**
@@ -182,11 +243,13 @@ fun Modifier.lightweightLiquidGlass(
 @Composable
 fun Modifier.liquidGlassRim(shape: CornerBasedShape): Modifier {
     if (!LocalLiquidGlassEnabled.current || !isGlassSupported()) return this
+    val isLight = isLightGlassSurface(MaterialTheme.colorScheme.surface)
+    val highlight = glassHighlight(isLight)
     val shapeProvider = remember(shape) { ShapeProvider { shape } }
     return then(
         HighlightElement(
             shapeProvider = shapeProvider,
-            highlight = { Highlight.Default },
+            highlight = { highlight },
         ),
     )
 }
@@ -218,10 +281,12 @@ fun Modifier.liquidGlass(
     surfaceTint: Color? = null,
 ): Modifier {
     if (!isGlassSupported()) return this
+    val isLight = isLightGlassSurface(MaterialTheme.colorScheme.surface)
+    val edgeColor = glassEdgeColor(isLight)
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     if (reduceDynamicBlur) {
         return background(MaterialTheme.colorScheme.surface, shape)
-            .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+            .border(GLASS_EDGE_WIDTH, edgeColor, shape)
     }
     val glassPerformance by AppSettings.glassPerformance.collectAsStateWithLifecycle()
     val backdrop = LocalAppBackdrop.current
@@ -232,12 +297,8 @@ fun Modifier.liquidGlass(
     val blurPx = with(density) { blurRadiusDp.dp.toPx() } * resolutionScale
     val lensHeightPx = with(density) { (LENS_HEIGHT * LENS_MAX_DP).dp.toPx() } * resolutionScale
     val lensAmountPx = with(density) { (LENS_AMOUNT * LENS_MAX_DP).dp.toPx() } * resolutionScale
-    val themeTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
-        Color(0xFFFAFAFA)
-    } else {
-        Color(0xFF121212)
-    }
-    val surfaceTintColor = surfaceTint ?: themeTint.copy(alpha = SURFACE_OPACITY)
+    val surfaceTintColor = surfaceTint ?: glassSurfaceTintColor(isLight)
+    val highlight = glassHighlight(isLight)
 
     return drawBackdrop(
         backdrop = backdrop,
@@ -254,7 +315,7 @@ fun Modifier.liquidGlass(
                 )
             }
         },
-        highlight = { Highlight.Default },
+        highlight = { highlight },
         shadow = { Shadow.Default },
         onDrawSurface = {
             drawRect(color = surfaceTintColor, size = size)

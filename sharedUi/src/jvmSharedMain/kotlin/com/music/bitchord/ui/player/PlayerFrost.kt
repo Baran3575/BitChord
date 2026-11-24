@@ -146,17 +146,20 @@ fun Modifier.playerMenuSurface(
     )
 }
 
+internal const val PLAYER_BAR_SLAB_ALPHA = 0.65f
+internal const val PLAYER_BAR_PLAIN_SLAB_ALPHA = 0.75f
+internal const val PLAYER_BAR_BORDER_ALPHA = 0.14f
+
 /**
- * The ⋯ menu's own panel — its thinner slab and hairline rim — for the bars laid
- * over the player's lists: the queue's selection bar and Undo notice, and the
+ * The ⋯ menu's own panel — its slab and hairline rim — for the bars laid over
+ * the player's lists: the queue's selection bar and Undo notice, and the
  * share-lyrics bar. Blurs every source under it, since each sits inside the
  * player's own (see [liveMenuFrost]); without that it drew nothing at all.
  */
 @Composable
 fun Modifier.playerBarSurface(shape: Shape, hazeState: HazeState?): Modifier {
     val plain by PlayerSettings.disableBlendEffects.collectAsStateWithLifecycle()
-    // Thinner than the menu's 60%: the menu's frost also draws the colour up 1.8×,
-    // which haze can't, so the same slab here reads as near-solid charcoal.
-    return playerMenuSurface(shape, hazeState, slabAlpha = if (plain) 0.70f else 0.45f)
-        .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+    val slabAlpha = if (plain) PLAYER_BAR_PLAIN_SLAB_ALPHA else PLAYER_BAR_SLAB_ALPHA
+    return playerMenuSurface(shape, hazeState, slabAlpha = slabAlpha)
+        .border(0.5.dp, Color.White.copy(alpha = PLAYER_BAR_BORDER_ALPHA), shape)
 }

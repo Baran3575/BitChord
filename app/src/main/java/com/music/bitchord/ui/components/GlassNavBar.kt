@@ -16,6 +16,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -123,7 +124,7 @@ fun GlassNavBar(
     val pillShape = remember { RoundedCornerShape(percent = 50) }
     val contentColor = glassContentColor()
     val selectedColor = contentColor
-    val unselectedColor = contentColor.copy(alpha = 0.65f)
+    val unselectedColor = glassSecondaryContentColor()
     val haptics = rememberHaptics()
 
     // The tab content lambdas below are captured once per contentKey and held
@@ -141,7 +142,18 @@ fun GlassNavBar(
     // A factory, not a value — see the note in FloatingTabBar's header. Each of
     // the three surfaces gets its own glass modifier and so its own shape cache.
     // The theme's own glass tint, as the liquid top bar has it — no white wash.
-    val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape) }
+    val glassSurface: @Composable () -> Modifier = {
+        val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+        Modifier
+            .liquidGlass(shape = pillShape)
+            .then(
+                if (reduceDynamicBlur) {
+                    Modifier
+                } else {
+                    Modifier.border(GLASS_EDGE_WIDTH, glassEdgeColor(), pillShape)
+                },
+            )
+    }
 
     FloatingTabBar(
         selectedTabKey = selectedIndex,
@@ -234,8 +246,8 @@ fun GlassNavBar(
         ),
         // Held too: this is declared `Any?`, so a fresh list every pass is a
         // changed argument by identity and defeats skipping on its own.
-        contentKey = remember(selectedIndex, tabs, contentColor) {
-            listOf(selectedIndex, tabs, contentColor)
+        contentKey = remember(selectedIndex, tabs, contentColor, unselectedColor) {
+            listOf(selectedIndex, tabs, contentColor, unselectedColor)
         },
         // Expanded, Search shares the tab pill; collapsed, it is the circle at
         // the end of the row.
@@ -431,7 +443,7 @@ private fun GlassNowPlaying(
             // row shares its width with the tab pill and the Search circle, so
             // a long line fades out at its end, as Apple's does.
             Column(Modifier.weight(1f)) {
-                val secondary = contentColor.copy(alpha = 0.7f)
+                val secondary = contentColor.copy(alpha = GLASS_SUBTITLE_ALPHA)
                 ExplicitSongTitle(
                     song = song,
                     style = titleStyle,

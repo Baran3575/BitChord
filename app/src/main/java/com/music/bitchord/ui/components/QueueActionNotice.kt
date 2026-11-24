@@ -84,7 +84,7 @@ fun QueueActionNoticeHost(
                     Text(
                         text = current.message,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = if (hazeState != null) 0.75f else 1f),
+                        color = Color.White,
                         modifier = Modifier.weight(1f).padding(vertical = 16.dp),
                     )
                     if (actionLabel != null && onAction != null) {
