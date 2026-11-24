@@ -39,6 +39,7 @@ import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -90,7 +91,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val lastPlayerScreen get() = AppSettings.lastPlayerScreen
         override val playerTheme get() = AppSettings.playerTheme
         override val lyricsBlur get() = AppSettings.lyricsBlur
-        override val lyricsOffsetMs get() = AppSettings.lyricsOffsetMs
+        override val lyricsOffsetsMs get() = AppSettings.lyricsOffsetsMs
         override val lyricsSourceOrder get() = AppSettings.lyricsSourceOrder
         override val meteredConnection get() = AppSettings.meteredConnection
         override val streamCeilingOverride get() = AppSettings.streamCeilingOverride
@@ -119,7 +120,9 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val versionAlignmentInProgress get() = AppSettings.versionAlignmentInProgress
 
         override fun setLastPlayerScreen(value: LastPlayerScreen) = AppSettings.setLastPlayerScreen(value)
-        override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)
+        override fun lyricsOffsetMs(videoId: String): Int = AppSettings.lyricsOffsetMs(videoId)
+        override fun lyricsOffsetMsFlow(videoId: String): Flow<Int> = AppSettings.lyricsOffsetMsFlow(videoId)
+        override fun setLyricsOffsetMs(videoId: String, value: Int) = AppSettings.setLyricsOffsetMs(videoId, value)
         override fun setMixViewOpen(open: Boolean) {
             AppSettings.mixViewOpen.value = open
         }

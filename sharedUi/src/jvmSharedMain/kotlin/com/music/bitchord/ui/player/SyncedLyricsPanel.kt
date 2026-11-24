@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.playback.PlaybackPosition
@@ -22,13 +23,17 @@ fun SyncedLyricsPanel(
     centerFocus: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val lyricsOffsetMs by rememberLyricsOffsetMs(trackKey)
+    val seekToLyric: (Long) -> Unit = { lineTimeMs ->
+        onSeekToLine(adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs))
+    }
     LyricsPanel(
         lines = lines,
         trackKey = trackKey,
-        playhead = rememberLyricPlayhead(position),
+        playhead = rememberLyricPlayhead(trackKey, position),
         looking = looking,
         isPlaying = isPlaying,
-        onSeekToLine = onSeekToLine,
+        onSeekToLine = seekToLyric,
         controlsOpen = true,
         onRevealControls = {},
         onHideControls = {},

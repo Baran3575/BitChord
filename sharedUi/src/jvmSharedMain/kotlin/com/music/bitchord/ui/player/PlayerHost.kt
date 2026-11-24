@@ -19,8 +19,19 @@ import com.music.bitchord.data.settings.MixTransitionView
 import com.music.bitchord.data.settings.TransitionWindow
 import com.music.bitchord.playback.AutoMixVisualState
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Everything the player takes from the application it is drawn in.
@@ -278,7 +289,7 @@ interface PlayerSettingsSource {
     val lastPlayerScreen: StateFlow<LastPlayerScreen>
     val playerTheme: StateFlow<PlayerTheme>
     val lyricsBlur: StateFlow<Boolean>
-    val lyricsOffsetMs: StateFlow<Int>
+    val lyricsOffsetsMs: StateFlow<Map<String, Int>>
     val lyricsSourceOrder: StateFlow<List<LyricsSource>>
     val meteredConnection: StateFlow<Boolean?>
     /** A temporary cap over both ceilings, null when none applies — the watch's, on the phone. */
@@ -320,8 +331,18 @@ interface PlayerSettingsSource {
     val translationLanguage: StateFlow<String>
     val versionAlignmentInProgress: StateFlow<Boolean>
 
+    fun lyricsOffsetMs(videoId: String): Int =
+        if (videoId.isBlank()) 0 else lyricsOffsetsMs.value[videoId] ?: 0
+
+    fun lyricsOffsetMsFlow(videoId: String): Flow<Int> =
+        if (videoId.isBlank()) {
+            flowOf(0)
+        } else {
+            lyricsOffsetsMs.map { it[videoId] ?: 0 }.distinctUntilChanged()
+        }
+
     fun setLastPlayerScreen(value: LastPlayerScreen)
-    fun setLyricsOffsetMs(value: Int)
+    fun setLyricsOffsetMs(videoId: String, value: Int)
     /** Whether the mix popup is up, so the host lays out [smartMixPreview] for it. */
     fun setMixViewOpen(open: Boolean)
 }
@@ -332,9 +353,85 @@ internal val PlayerSettings: PlayerSettingsSource
 
 private val defaultAutoMixArtwork: StateFlow<AutoMixArtworkPreferences> = MutableStateFlow(AutoMixArtworkPreferences())
 
-/** The lyric offset sheet's range, in milliseconds either way. */
-const val MIN_LYRICS_OFFSET_MS = -5_000
-const val MAX_LYRICS_OFFSET_MS = 5_000
+/** The lyric offset sheet's range, in milliseconds either way, and max stored tracks. */
+const val MIN_LYRICS_OFFSET_MS = -60_000
+const val MAX_LYRICS_OFFSET_MS = 60_000
+const val MAX_LYRICS_OFFSET_ENTRIES = 500
+
+fun normalizeLyricsOffsetMs(value: Int): Int =
+    value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+
+/**
+ * Updates [current] with [videoId]'s offset, clamping into
+ * [MIN_LYRICS_OFFSET_MS]..[MAX_LYRICS_OFFSET_MS], dropping `0 ms` entries,
+ * refreshing recency order, and evicting oldest entries past [maxEntries].
+ */
+fun updateLyricsOffsets(
+    current: Map<String, Int>,
+    videoId: String,
+    offsetMs: Int,
+    maxEntries: Int = MAX_LYRICS_OFFSET_ENTRIES,
+): LinkedHashMap<String, Int> {
+    val updated = LinkedHashMap<String, Int>(current.size + 1)
+    for ((key, existing) in current) {
+        if (key.isNotBlank() && key != videoId) {
+            val clamped = normalizeLyricsOffsetMs(existing)
+            if (clamped != 0) updated[key] = clamped
+        }
+    }
+    if (videoId.isBlank()) return trimLyricsOffsets(updated, maxEntries)
+    val normalized = normalizeLyricsOffsetMs(offsetMs)
+    if (normalized != 0) {
+        updated[videoId] = normalized
+    }
+    return trimLyricsOffsets(updated, maxEntries)
+}
+
+private fun trimLyricsOffsets(
+    entries: LinkedHashMap<String, Int>,
+    maxEntries: Int,
+): LinkedHashMap<String, Int> {
+    val cap = maxEntries.coerceAtLeast(0)
+    val iterator = entries.entries.iterator()
+    while (entries.size > cap && iterator.hasNext()) {
+        iterator.next()
+        iterator.remove()
+    }
+    return entries
+}
+
+fun encodeLyricsOffsets(offsets: Map<String, Int>): String {
+    if (offsets.isEmpty()) return ""
+    val obj = buildJsonObject {
+        for ((key, value) in offsets) {
+            if (key.isNotBlank()) {
+                val normalized = normalizeLyricsOffsetMs(value)
+                if (normalized != 0) put(key, JsonPrimitive(normalized))
+            }
+        }
+    }
+    return if (obj.isEmpty()) "" else Json.encodeToString(JsonObject.serializer(), obj)
+}
+
+fun decodeLyricsOffsets(
+    raw: String?,
+    maxEntries: Int = MAX_LYRICS_OFFSET_ENTRIES,
+): LinkedHashMap<String, Int> {
+    if (raw.isNullOrBlank()) return LinkedHashMap()
+    val parsed = runCatching { Json.parseToJsonElement(raw).jsonObject }.getOrNull()
+        ?: return LinkedHashMap()
+    val loaded = LinkedHashMap<String, Int>(parsed.size)
+    for ((key, element) in parsed) {
+        if (key.isBlank()) continue
+        val value = element.jsonPrimitive.intOrNull ?: continue
+        val normalized = normalizeLyricsOffsetMs(value)
+        if (normalized != 0) {
+            loaded.remove(key)
+            loaded[key] = normalized
+        }
+    }
+    return trimLyricsOffsets(loaded, maxEntries)
+}
 
 /** A system output level, 0..1, and the means to set it. */
 interface SystemVolume {

@@ -538,4 +538,40 @@ class LyricClockTest {
         )
         assertTrue(abs(last - (15_000 - 1_500)) < 40)
     }
+
+    /** Positive lyric offset during a long video intro: negative pre-roll runs at 1x across 0 ms. */
+    @Test fun negativePreRollAdvancesAtNormalRateIntoPositiveLyrics() {
+        val run = run(Playback(startMs = -35_000L, maxDelayMs = 300.0), seconds = 45.0)
+        assertNeverBack(run)
+        val window = 15
+        for (i in window until run.shown.size) {
+            val moved = run.shown[i] - run.shown[i - window]
+            val elapsed = run.frames[i] - run.frames[i - window]
+            assertTrue("stalled in pre-roll near ${run.frames[i]}: $moved ms in $elapsed", moved >= elapsed * 0.5)
+        }
+        for (i in run.frames.indices) {
+            if (run.frames[i] < 2_000) continue
+            val error = run.shown[i] - run.truth[i]
+            assertTrue("off by $error at ${run.frames[i]}", abs(error) < 40.0)
+        }
+        assertTrue("expected negative start, got ${run.shown.first()}", run.shown.first() <= -34_900L)
+        assertTrue("expected positive finish, got ${run.shown.last()}", run.shown.last() >= 9_900L)
+    }
+
+    @Test fun positiveOffsetJumpIntoNegativePreRollIsFollowed() {
+        val position = PlaybackPosition()
+        val offset = mutableStateOf(0)
+        val playhead = LyricPlayhead(position, offset)
+        val clock = LyricClock(2_000L)
+        position.report(2_000L, sampledAtNanos = 1_000_000_000L, isPlaying = true)
+        assertEquals(2_000L, clock.frame(1_000.0, playhead.reading(isPlaying = true)))
+
+        offset.value = 35_000
+        val jumped = clock.frame(1_016.0, playhead.reading(isPlaying = true))
+        assertTrue("expected jump to ~-33_000 ms, got $jumped", abs(jumped - (-32_984L)) < 40)
+
+        position.report(2_500L, sampledAtNanos = 1_500_000_000L, isPlaying = true)
+        val later = clock.frame(1_516.0, playhead.reading(isPlaying = true))
+        assertTrue("expected smooth advance in negative pre-roll, got $later", abs(later - (-32_484L)) < 40)
+    }
 }
