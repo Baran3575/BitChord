@@ -672,6 +672,12 @@
     <string name="paxsenix_api_key">PaxSenix API key</string>
     <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
+    <string name="betterlyrics_api_key">BetterLyrics API key</string>
+    <string name="betterlyrics_api_key_configured">BetterLyrics API key — configured</string>
+    <string name="betterlyrics_api_key_missing">BetterLyrics API key — optional, unlocks uncached lookups</string>
+    <string name="lyrics_api_key_badge_set">Set</string>
+    <string name="lyrics_api_key_badge_optional">Optional</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
     <string name="max_delay">Maximum delay</string>
     <string name="max_delay_subtitle">Maximum scrobble delay in seconds</string>
     <string name="min_song_duration">Minimum song duration</string>
