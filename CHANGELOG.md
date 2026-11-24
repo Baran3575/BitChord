@@ -17,5 +17,8 @@
 - Refined `LyricsSkeleton` shimmer easing/geometry and added a breathing alpha pulse to `LyricsLoadingLine`.
 - Added localization strings across all supported locales (`app/src/main/res` and `sharedUi/composeResources`).
 
-### Release Metadata
+### Release Metadata & Update Continuity
 - Bumped phone, Wear OS, and Android TV versions to `1.10.1` (`versionCode = 43`).
+- Backfilled missing v1.10 localization keys across all 17 non-English Android locales so `LocaleStringsTest` passes across every language.
+- Pointed `AppUpdateChecker` to `BuildConfig.UPDATE_REPO` (`Baran3575/BitChord` by default) so in-app updates preserve fork customizations and signing continuity.
+- Added `.github/workflows/upstream-sync.yml` (automated conflict-checked upstream merges from `kushagrasinghx/BitChord@main` into `Main2`), `.github/workflows/release.yml` (tagged Phone/TV/Wear APK releases), and updated `.github/workflows/android.yml` to build safely on `Main2`.
