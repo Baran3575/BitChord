@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,19 +64,22 @@ import kotlin.math.roundToInt
 
 private val DrawerShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
 private val ControlShape = RoundedCornerShape(16.dp)
+private val StepPillShape = RoundedCornerShape(12.dp)
 private val ScrimColor = Color.Black.copy(alpha = 0.5f)
 private val DrawerMaxWidth = 640.dp
-private const val StepMs = 100
+internal const val LYRICS_OFFSET_FINE_STEP_MS = 100
+internal const val LYRICS_OFFSET_COARSE_STEP_MS = 1_000
 private const val DismissDragFraction = 0.25f
 
-/** A player drawer for shifting all synced lyrics against the playback clock. */
+/** A player drawer for shifting a track's synced lyrics against the playback clock. */
 @Composable
 internal fun LyricsOffsetSheet(
+    videoId: String,
     hazeState: HazeState,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val offsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+    val offsetMs by rememberLyricsOffsetMs(videoId)
     val haptics = rememberHaptics()
     var drag by remember { mutableFloatStateOf(0f) }
     var height by remember { mutableIntStateOf(0) }
@@ -178,12 +180,15 @@ internal fun LyricsOffsetSheet(
                         .padding(start = 4.dp, top = 3.dp, bottom = 14.dp),
                 )
 
+                val decreaseDescription = stringResource(Res.string.decrease_lyrics_offset)
+                val increaseDescription = stringResource(Res.string.increase_lyrics_offset)
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(ControlShape)
                         .background(Color.White.copy(alpha = 0.05f))
-                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
@@ -193,34 +198,79 @@ internal fun LyricsOffsetSheet(
                         ),
                         color = Color.White,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
+                    ThinSlider(
+                        value = offsetToFraction(offsetMs),
+                        onValueChange = {
+                            PlayerSettings.setLyricsOffsetMs(videoId, fractionToOffset(it))
+                        },
+                        idleHeight = 6.dp,
+                        activeHeight = 10.dp,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 2.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        RangeCaption(formatOffset(MIN_LYRICS_OFFSET_MS))
+                        RangeCaption(formatOffset(0))
+                        RangeCaption(formatOffset(MAX_LYRICS_OFFSET_MS))
+                    }
+                    Spacer(Modifier.height(10.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        OffsetButton(
-                            label = "−",
-                            contentDescription = stringResource(Res.string.decrease_lyrics_offset),
+                        OffsetStepButton(
+                            label = formatStepLabel(-LYRICS_OFFSET_COARSE_STEP_MS),
+                            contentDescription = "$decreaseDescription (${formatStepLabel(-LYRICS_OFFSET_COARSE_STEP_MS)})",
                             enabled = offsetMs > MIN_LYRICS_OFFSET_MS,
-                        ) {
-                            haptics.play(Haptic.Select)
-                            PlayerSettings.setLyricsOffsetMs(offsetMs - StepMs)
-                        }
-                        ThinSlider(
-                            value = offsetToFraction(offsetMs),
-                            onValueChange = { PlayerSettings.setLyricsOffsetMs(fractionToOffset(it)) },
-                            idleHeight = 6.dp,
-                            activeHeight = 10.dp,
                             modifier = Modifier.weight(1f),
-                        )
-                        OffsetButton(
-                            label = "+",
-                            contentDescription = stringResource(Res.string.increase_lyrics_offset),
-                            enabled = offsetMs < MAX_LYRICS_OFFSET_MS,
                         ) {
                             haptics.play(Haptic.Select)
-                            PlayerSettings.setLyricsOffsetMs(offsetMs + StepMs)
+                            PlayerSettings.setLyricsOffsetMs(
+                                videoId,
+                                stepLyricsOffset(offsetMs, -LYRICS_OFFSET_COARSE_STEP_MS),
+                            )
+                        }
+                        OffsetStepButton(
+                            label = formatStepLabel(-LYRICS_OFFSET_FINE_STEP_MS),
+                            contentDescription = decreaseDescription,
+                            enabled = offsetMs > MIN_LYRICS_OFFSET_MS,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            haptics.play(Haptic.Select)
+                            PlayerSettings.setLyricsOffsetMs(
+                                videoId,
+                                stepLyricsOffset(offsetMs, -LYRICS_OFFSET_FINE_STEP_MS),
+                            )
+                        }
+                        OffsetStepButton(
+                            label = formatStepLabel(LYRICS_OFFSET_FINE_STEP_MS),
+                            contentDescription = increaseDescription,
+                            enabled = offsetMs < MAX_LYRICS_OFFSET_MS,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            haptics.play(Haptic.Select)
+                            PlayerSettings.setLyricsOffsetMs(
+                                videoId,
+                                stepLyricsOffset(offsetMs, LYRICS_OFFSET_FINE_STEP_MS),
+                            )
+                        }
+                        OffsetStepButton(
+                            label = formatStepLabel(LYRICS_OFFSET_COARSE_STEP_MS),
+                            contentDescription = "$increaseDescription (${formatStepLabel(LYRICS_OFFSET_COARSE_STEP_MS)})",
+                            enabled = offsetMs < MAX_LYRICS_OFFSET_MS,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            haptics.play(Haptic.Select)
+                            PlayerSettings.setLyricsOffsetMs(
+                                videoId,
+                                stepLyricsOffset(offsetMs, LYRICS_OFFSET_COARSE_STEP_MS),
+                            )
                         }
                     }
                 }
@@ -234,7 +284,7 @@ internal fun LyricsOffsetSheet(
                         .clip(CircleShape)
                         .clickable(enabled = offsetMs != 0) {
                             haptics.play(Haptic.Tap)
-                            PlayerSettings.setLyricsOffsetMs(0)
+                            PlayerSettings.setLyricsOffsetMs(videoId, 0)
                         }
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                 )
@@ -244,38 +294,62 @@ internal fun LyricsOffsetSheet(
 }
 
 @Composable
-private fun OffsetButton(
+private fun RangeCaption(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = Color.White.copy(alpha = 0.42f),
+    )
+}
+
+@Composable
+private fun OffsetStepButton(
     label: String,
     contentDescription: String,
     enabled: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.semantics { this.contentDescription = contentDescription },
+    Box(
+        modifier = modifier
+            .height(40.dp)
+            .clip(StepPillShape)
+            .background(Color.White.copy(alpha = if (enabled) 0.10f else 0.04f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleLarge,
-            color = Color.White.copy(alpha = if (enabled) 0.85f else 0.25f),
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = Color.White.copy(alpha = if (enabled) 0.90f else 0.28f),
         )
     }
 }
 
-private fun offsetToFraction(offsetMs: Int): Float =
-    (offsetMs - MIN_LYRICS_OFFSET_MS).toFloat() /
-        (MAX_LYRICS_OFFSET_MS - MIN_LYRICS_OFFSET_MS)
+internal fun stepLyricsOffset(offsetMs: Int, deltaMs: Int): Int =
+    normalizeLyricsOffsetMs(offsetMs + deltaMs)
 
-private fun fractionToOffset(fraction: Float): Int {
+internal fun offsetToFraction(offsetMs: Int): Float =
+    ((normalizeLyricsOffsetMs(offsetMs) - MIN_LYRICS_OFFSET_MS).toFloat() /
+        (MAX_LYRICS_OFFSET_MS - MIN_LYRICS_OFFSET_MS)).coerceIn(0f, 1f)
+
+internal fun fractionToOffset(fraction: Float): Int {
     val raw = MIN_LYRICS_OFFSET_MS +
         fraction.coerceIn(0f, 1f) *
         (MAX_LYRICS_OFFSET_MS - MIN_LYRICS_OFFSET_MS)
-    return (raw / StepMs).roundToInt() * StepMs
+    return normalizeLyricsOffsetMs(
+        (raw / LYRICS_OFFSET_FINE_STEP_MS).roundToInt() * LYRICS_OFFSET_FINE_STEP_MS,
+    )
 }
 
-private fun formatOffset(offsetMs: Int): String = String.format(
-    Locale.getDefault(),
-    "%+.1f s",
-    offsetMs / 1_000f,
-)
+internal fun formatOffset(offsetMs: Int): String =
+    if (offsetMs == 0) {
+        String.format(Locale.getDefault(), "%.1f s", 0f)
+    } else {
+        String.format(Locale.getDefault(), "%+.1f s", offsetMs / 1_000f).replace('-', '−')
+    }
+
+private fun formatStepLabel(stepMs: Int): String = formatOffset(stepMs)

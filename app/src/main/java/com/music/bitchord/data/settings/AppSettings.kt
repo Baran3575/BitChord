@@ -18,8 +18,15 @@ import com.music.bitchord.playback.AutoMixVisualFeed
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import com.music.bitchord.ui.player.AutoMixArtworkPreferences
+import com.music.bitchord.ui.player.decodeLyricsOffsets
+import com.music.bitchord.ui.player.encodeLyricsOffsets
+import com.music.bitchord.ui.player.updateLyricsOffsets
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 
 /**
@@ -560,8 +567,13 @@ object AppSettings {
     /** Blurs unfocused lyric lines, keeping the active line sharp. */
     val lyricsBlur = MutableStateFlow(true)
 
-    /** Positive values delay synced lyrics; negative values bring them forward. */
-    val lyricsOffsetMs = MutableStateFlow(0)
+    /**
+     * Per-track synced lyric timing offsets keyed by `Song.videoId` (`0 ms` omitted;
+     * insertion order tracks recency up to [MAX_LYRICS_OFFSET_ENTRIES]).
+     * Positive values delay synced lyrics; negative values bring them forward.
+     */
+    val lyricsOffsetsMs = MutableStateFlow<Map<String, Int>>(emptyMap())
+    private var lyricsOffsetsOrder = LinkedHashMap<String, Int>()
 
     /**
      * Which language the lyrics translate button translates *into*.
@@ -1016,6 +1028,11 @@ object AppSettings {
         readAll()
     }
 
+    internal fun initForTest(prefs: SharedPreferences) {
+        this.prefs = prefs
+        readAll()
+    }
+
     /**
      * Credentials ([SECRETS]) live in [authStore]'s encrypted file, not this
      * one: this file is in Android's Auto Backup, so a scrobbler session key or
@@ -1038,7 +1055,8 @@ object AppSettings {
         prefs.edit().apply { stale.forEach { remove(it) } }.apply()
     }
 
-    private fun secret(key: String): String = authStore.settingSecret(key).orEmpty()
+    private fun secret(key: String): String =
+        if (this::authStore.isInitialized) authStore.settingSecret(key).orEmpty() else ""
 
     private fun putSecret(key: String, value: String) = authStore.setSettingSecret(key, value)
 
@@ -1139,8 +1157,11 @@ object AppSettings {
         glassPerformance.value = prefs.getBoolean(KEY_GLASS_PERFORMANCE, false)
         progressiveBlur.value = prefs.getBoolean(KEY_PROGRESSIVE_BLUR, false)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
-        lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
-            .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        synchronized(this) {
+            val decodedLyricsOffsets = decodeLyricsOffsets(prefs.getString(KEY_LYRICS_OFFSETS_MS, null))
+            lyricsOffsetsOrder = decodedLyricsOffsets
+            lyricsOffsetsMs.value = LinkedHashMap(decodedLyricsOffsets)
+        }
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
@@ -1205,12 +1226,12 @@ object AppSettings {
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
         webdavUsername.value = prefs.getString(KEY_WEBDAV_USERNAME, "").orEmpty()
-        webdavPassword.value = authStore.webdavPassword.orEmpty()
+        webdavPassword.value = if (this::authStore.isInitialized) authStore.webdavPassword.orEmpty() else ""
         smbHost.value = prefs.getString(KEY_SMB_HOST, "").orEmpty()
         smbShare.value = prefs.getString(KEY_SMB_SHARE, "").orEmpty()
         smbBasePath.value = prefs.getString(KEY_SMB_BASE_PATH, "").orEmpty()
         smbUsername.value = prefs.getString(KEY_SMB_USERNAME, "").orEmpty()
-        smbPassword.value = authStore.smbPassword.orEmpty()
+        smbPassword.value = if (this::authStore.isInitialized) authStore.smbPassword.orEmpty() else ""
         com.music.bitchord.data.smb.SmbAuth.update(
             smbHost.value,
             smbShare.value,
@@ -1224,7 +1245,7 @@ object AppSettings {
             webdavPassword.value,
         )
         pinnedPlaylists.value = readPinnedPlaylists()
-        discordToken.value = authStore.discordToken.orEmpty()
+        discordToken.value = if (this::authStore.isInitialized) authStore.discordToken.orEmpty() else ""
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
         discordName.value = prefs.getString(KEY_DISCORD_NAME, "").orEmpty()
         discordAvatar.value = prefs.getString(KEY_DISCORD_AVATAR, "").orEmpty()
@@ -1702,11 +1723,29 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_LYRICS_BLUR, value).apply()
     }
 
-    fun setLyricsOffsetMs(value: Int) {
-        val normalized = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
-        if (lyricsOffsetMs.value == normalized) return
-        lyricsOffsetMs.value = normalized
-        prefs.edit().putInt(KEY_LYRICS_OFFSET_MS, normalized).apply()
+    fun lyricsOffsetMs(videoId: String): Int =
+        if (videoId.isBlank()) 0 else lyricsOffsetsMs.value[videoId] ?: 0
+
+    fun lyricsOffsetMsFlow(videoId: String): Flow<Int> =
+        if (videoId.isBlank()) {
+            flowOf(0)
+        } else {
+            lyricsOffsetsMs.map { it[videoId] ?: 0 }.distinctUntilChanged()
+        }
+
+    @Synchronized
+    fun setLyricsOffsetMs(videoId: String, value: Int) {
+        if (videoId.isBlank()) return
+        val updated = updateLyricsOffsets(lyricsOffsetsOrder, videoId, value)
+        lyricsOffsetsOrder = updated
+        lyricsOffsetsMs.value = LinkedHashMap(updated)
+        prefs.edit().apply {
+            if (updated.isEmpty()) {
+                remove(KEY_LYRICS_OFFSETS_MS)
+            } else {
+                putString(KEY_LYRICS_OFFSETS_MS, encodeLyricsOffsets(updated))
+            }
+        }.apply()
     }
 
     /** Blank restores "follow the app language"; see [translationLanguage]. */
@@ -2399,8 +2438,9 @@ object AppSettings {
     /** The cache limit with no ceiling: only free storage bounds it. */
     const val UNLIMITED_CACHE_LIMIT_BYTES = Long.MAX_VALUE
 
-    const val MIN_LYRICS_OFFSET_MS = -5_000
-    const val MAX_LYRICS_OFFSET_MS = 5_000
+    const val MIN_LYRICS_OFFSET_MS = -60_000
+    const val MAX_LYRICS_OFFSET_MS = 60_000
+    const val MAX_LYRICS_OFFSET_ENTRIES = 500
 
     const val DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS = 5
     const val MIN_UPGRADE_LENGTH_SLACK_SECONDS = 0
@@ -2484,7 +2524,7 @@ object AppSettings {
     private const val KEY_GLASS_PERFORMANCE = "glass_performance"
     private const val KEY_PROGRESSIVE_BLUR = "progressive_blur"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
-    private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
+    private const val KEY_LYRICS_OFFSETS_MS = "lyrics_offsets_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"

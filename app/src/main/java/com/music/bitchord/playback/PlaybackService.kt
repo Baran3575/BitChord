@@ -155,6 +155,7 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
+import com.music.bitchord.ui.player.adjustedLyricsPosition
 import com.music.bitchord.ui.player.discardBlockedAutoMixAmbient
 import com.music.bitchord.ui.player.prefetchAutoMixArtwork
 import com.music.bitchord.widget.MediaWidget
@@ -8102,6 +8103,11 @@ class PlaybackService : MediaLibraryService() {
             }
         }
         scope.launch {
+            AppSettings.lyricsOffsetsMs.drop(1).collect {
+                updateLyricSubtitle()
+            }
+        }
+        scope.launch {
             AppSettings.spatialAudio.collect { applySpatialAudioEnabled() }
         }
         scope.launch {
@@ -8768,17 +8774,13 @@ class PlaybackService : MediaLibraryService() {
         val currentSong = exoPlayer.currentMediaItem?.toSong() ?: return
         val lines = serviceLyrics
         val pos = crossfade?.loopPositionMs() ?: exoPlayer.currentPosition
-        val subtitleText = if (lines != null && lines.isNotEmpty() && AppSettings.syncedLyrics.value) {
-            val idx = lines.indexOfLast { it.timeMs <= pos }
-            val currentLine = lines.getOrNull(idx)
-            if (currentLine != null && !currentLine.isGap && currentLine.text.isNotBlank()) {
-                "♪ ${currentLine.text}"
-            } else {
-                currentSong.artist
-            }
-        } else {
-            currentSong.artist
-        }
+        val subtitleText = lyricSubtitleFor(
+            lines = lines,
+            syncedLyrics = AppSettings.syncedLyrics.value,
+            positionMs = pos,
+            offsetMs = AppSettings.lyricsOffsetMs(currentSong.videoId),
+            artist = currentSong.artist,
+        )
 
         if (subtitleText != lastPublishedSubtitle) {
             lastPublishedSubtitle = subtitleText
@@ -10875,3 +10877,21 @@ internal fun lyricsSettingChanges(
 ): Flow<List<Any>> = combine(synced, sources, order, prioritizeSyllableSync) { s, src, o, p ->
     listOf(s, src, o, p)
 }.distinctUntilChanged()
+
+internal fun lyricSubtitleFor(
+    lines: List<LyricLine>?,
+    syncedLyrics: Boolean,
+    positionMs: Long,
+    offsetMs: Int,
+    artist: String,
+): String {
+    if (!lines.isNullOrEmpty() && syncedLyrics) {
+        val adjustedPos = adjustedLyricsPosition(positionMs, offsetMs)
+        val idx = lines.indexOfLast { it.timeMs <= adjustedPos }
+        val currentLine = lines.getOrNull(idx)
+        if (currentLine != null && !currentLine.isGap && currentLine.text.isNotBlank()) {
+            return "♪ ${currentLine.text}"
+        }
+    }
+    return artist
+}

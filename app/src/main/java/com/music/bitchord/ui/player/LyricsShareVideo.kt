@@ -31,6 +31,7 @@ import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.TrackMatcher
 import java.util.concurrent.ConcurrentHashMap
@@ -165,8 +166,16 @@ internal suspend fun exportLyricsVideo(
     }
 
     // Looked up once: for an addon or JioSaavn row it is a YouTube search.
-    val opus = timeline?.let { shareOpusFor(request.song) }?.let { (factory, uri) ->
-        ShareAudio(factory, uri, timeline)
+    // The card overlay stays on the lyric clock; Opus clipping shifts by the
+    // track's lyric offset so the vocal slice matches the lit lines.
+    val offsetMs = AppSettings.lyricsOffsetMs(request.song.videoId)
+    val audioSegments = timeline?.let { shiftedShareAudioSegments(it.segments, offsetMs) }.orEmpty()
+    val opus = if (audioSegments.isNotEmpty()) {
+        shareOpusFor(request.song)?.let { (factory, uri) ->
+            ShareAudio(factory, uri, audioSegments)
+        }
+    } else {
+        null
     }
 
     suspend fun attempt(withAudio: Boolean): Boolean {
@@ -285,7 +294,11 @@ private class RoutingSourceFactory(
 private object SongAudio
 
 /** Where the share video's audio is read from, and which stretches of it. */
-private class ShareAudio(val factory: DataSource.Factory, val uri: Uri, val timeline: ShareTimeline)
+private class ShareAudio(
+    val factory: DataSource.Factory,
+    val uri: Uri,
+    val segments: List<Pair<Long, Long>>,
+)
 
 /**
  * The song's YouTube Opus, whatever it is playing from right now.
@@ -368,15 +381,15 @@ private suspend fun transform(
     val sequences = mutableListOf(video)
     var songFactory: MediaSource.Factory = DefaultMediaSourceFactory(context)
     if (audio != null) {
-        val pieces = audio.timeline.segments.map { (start, end) ->
+        val pieces = audio.segments.map { (start, end) ->
             EditedMediaItem.Builder(
                 MediaItem.Builder()
                     .setUri(audio.uri)
                     .setTag(SongAudio)
                     .setClippingConfiguration(
                         MediaItem.ClippingConfiguration.Builder()
-                            .setStartPositionMs(start)
-                            .setEndPositionMs(end)
+                            .setStartPositionMs(start.coerceAtLeast(0L))
+                            .setEndPositionMs(end.coerceAtLeast(0L))
                             .build(),
                     )
                     .build(),

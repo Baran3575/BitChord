@@ -582,11 +582,23 @@ internal fun LyricsStatusWithChange(
     }
 }
 
-internal fun adjustedLyricsPosition(positionMs: Long, offsetMs: Int): Long =
-    (positionMs - offsetMs.toLong()).coerceAtLeast(0L)
+fun adjustedLyricsPosition(positionMs: Long, offsetMs: Int): Long =
+    positionMs - offsetMs.toLong()
 
-internal fun adjustedLyricsSeekTarget(lineTimeMs: Long, offsetMs: Int): Long =
+fun adjustedLyricsSeekTarget(lineTimeMs: Long, offsetMs: Int): Long =
     (lineTimeMs + offsetMs.toLong()).coerceAtLeast(0L)
+
+fun shiftedShareAudioSegments(
+    segments: List<Pair<Long, Long>>,
+    offsetMs: Int,
+): List<Pair<Long, Long>> {
+    val delta = offsetMs.toLong()
+    return segments.mapNotNull { (start, end) ->
+        val shiftedStart = (start + delta).coerceAtLeast(0L)
+        val shiftedEnd = (end + delta).coerceAtLeast(0L)
+        if (shiftedEnd > shiftedStart) shiftedStart to shiftedEnd else null
+    }
+}
 
 /**
  * The current lyric, one line, directly above the scrubber — or the line
@@ -709,8 +721,16 @@ internal class LyricPlayhead(
 }
 
 @Composable
-internal fun rememberLyricPlayhead(position: PlaybackPosition): LyricPlayhead {
-    val offset = PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+internal fun rememberLyricsOffsetMs(videoId: String): State<Int> {
+    val offsetsState = PlayerSettings.lyricsOffsetsMs.collectAsStateWithLifecycle()
+    return remember(videoId, offsetsState) {
+        derivedStateOf { if (videoId.isBlank()) 0 else offsetsState.value[videoId] ?: 0 }
+    }
+}
+
+@Composable
+internal fun rememberLyricPlayhead(videoId: String, position: PlaybackPosition): LyricPlayhead {
+    val offset = rememberLyricsOffsetMs(videoId)
     return remember(position, offset) { LyricPlayhead(position, offset) }
 }
 
