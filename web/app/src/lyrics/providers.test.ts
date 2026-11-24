@@ -9,6 +9,7 @@ describe('betterLyricsCandidateUrls', () => {
       artist: 'The Weeknd & Daft Punk',
       durationMs: 200_000,
       album: 'After Hours',
+      isrc: null,
     });
 
     expect(urls).toEqual([
