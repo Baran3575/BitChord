@@ -40,6 +40,7 @@ object PaxSenix {
         durationMs: Long,
         album: String? = null,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        if (durationMs <= 0L) return@withContext null
         val id = searchPublicAppleTrackId(title, artist, durationMs)
             ?: return@withContext null
         val url = publicUrl("apple-music/lyrics")
@@ -47,7 +48,7 @@ object PaxSenix {
             .addQueryParameter("ttml", "true")
             .build()
         lyricsGet(url.toString())
-            ?.let(::parseResponse)
+            ?.let { matchingResponse(it, durationMs, durationAlreadyVerified = true) }
     }
 
     suspend fun spotifyLyrics(
@@ -55,10 +56,11 @@ object PaxSenix {
         artist: String,
         durationMs: Long,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        if (durationMs <= 0L) return@withContext null
         val id = searchTrackId("spotify/search", title, artist, durationMs)
         id?.let {
             apiBody(apiUrl("lyrics/spotify").addQueryParameter("id", it).build())
-                ?.let(::parseResponse)
+                ?.let { raw -> matchingResponse(raw, durationMs, durationAlreadyVerified = true) }
         } ?: genericAuthenticatedLyrics(title, artist, durationMs)
     }
 
@@ -67,13 +69,14 @@ object PaxSenix {
         artist: String,
         durationMs: Long,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        if (durationMs <= 0L) return@withContext null
         val query: HttpUrl.Builder.() -> Unit = {
             addQueryParameter("t", title)
             addQueryParameter("a", artist)
             addQueryParameter("d", (durationMs / 1000).toString())
         }
         apiBody(apiUrl("lyrics/musixmatch").apply(query).build())
-            ?.let(::parseResponse)
+            ?.let { matchingResponse(it, durationMs, durationAlreadyVerified = false) }
             ?: genericAuthenticatedLyrics(title, artist, durationMs)
     }
 
@@ -82,6 +85,7 @@ object PaxSenix {
         artist: String,
         durationMs: Long,
     ): String? {
+        if (durationMs <= 0L) return null
         val token = appleToken() ?: return null
         val url = APPLE_SEARCH.toHttpUrl().newBuilder()
             .addQueryParameter("term", "$title $artist")
@@ -112,6 +116,7 @@ object PaxSenix {
         artist: String,
         durationMs: Long,
     ): String? {
+        if (durationMs <= 0L) return null
         val query: HttpUrl.Builder.() -> Unit = {
             addQueryParameter("q", "$title $artist")
         }
@@ -121,11 +126,23 @@ object PaxSenix {
         return bestCandidate(root, title, artist, durationMs)?.id
     }
 
+    internal fun selectBestCandidateId(
+        raw: String,
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): String? {
+        if (durationMs <= 0L) return null
+        val root = runCatching { lyricsJson.parseToJsonElement(raw) }.getOrNull() ?: return null
+        return bestCandidate(root, title, artist, durationMs)?.id
+    }
+
     private fun genericAuthenticatedLyrics(
         title: String,
         artist: String,
         durationMs: Long,
     ): List<LyricLine>? {
+        if (durationMs <= 0L) return null
         val url = apiUrl("lyrics/lrcget")
             .addQueryParameter("q", "$title $artist")
             .build()
@@ -144,17 +161,34 @@ object PaxSenix {
         artist: String,
         durationMs: Long,
     ): List<LyricLine>? {
+        if (durationMs <= 0L) return null
         val root = runCatching { lyricsJson.parseToJsonElement(raw) }.getOrNull()
             ?: return null
         val payload = (root as? JsonObject)?.get("lyrics")
         val documents = (payload as? JsonArray).orEmpty()
-        if (documents.isEmpty()) return parseResponse(raw)
+        if (documents.isEmpty()) return matchingResponse(raw, durationMs, durationAlreadyVerified = false)
 
         return documents.mapNotNull { document ->
-            val lines = parseResponse(document.toString()) ?: return@mapNotNull null
-            val metadataScore = (document as? JsonObject)
-                ?.lyricCandidateScore(title, artist, durationMs) ?: 0
-            ParsedDocument(lines, metadataScore, durationDistance(lines, durationMs))
+            val obj = document as? JsonObject
+            val candidateDurationMs = obj?.candidateDurationMs() ?: 0L
+            if (candidateDurationMs > 0L && abs(candidateDurationMs - durationMs) > STUDIO_DURATION_TOLERANCE_MS) {
+                return@mapNotNull null
+            }
+            val metadataScore = obj?.lyricCandidateScore(title, artist, durationMs)
+            if (obj != null && candidateDurationMs > 0L && (metadataScore == null || metadataScore < MINIMUM_MATCH_SCORE)) {
+                return@mapNotNull null
+            }
+            val lines = matchingResponse(
+                raw = document.toString(),
+                durationMs = durationMs,
+                durationAlreadyVerified = candidateDurationMs > 0L,
+            ) ?: return@mapNotNull null
+            val distanceMs = if (candidateDurationMs > 0L) {
+                abs(candidateDurationMs - durationMs)
+            } else {
+                durationDistance(lines, durationMs)
+            }
+            ParsedDocument(lines, metadataScore ?: 0, distanceMs)
         }.maxWithOrNull(
             compareBy<ParsedDocument> { it.metadataScore }
                 .thenBy { -it.durationDistanceMs }
@@ -175,6 +209,11 @@ object PaxSenix {
         return abs(lastTimestamp - durationMs)
     }
 
+    private fun JsonObject.candidateDurationMs(): Long {
+        val details = this["attributes"] as? JsonObject ?: this
+        return details.extractCandidateDurationMs()
+    }
+
     private fun JsonObject.lyricCandidateScore(
         title: String,
         artist: String,
@@ -185,7 +224,7 @@ object PaxSenix {
             id = firstString(ID_KEYS) ?: "",
             title = details.firstString(TITLE_KEYS).orEmpty(),
             artist = details.firstString(ARTIST_KEYS) ?: details.artistNames().orEmpty(),
-            durationMs = details.firstLong(DURATION_KEYS).toDurationMs(),
+            durationMs = details.extractCandidateDurationMs(),
         )
         return candidate.score(title, artist, durationMs)
     }
@@ -196,15 +235,46 @@ object PaxSenix {
         artist: String,
         durationMs: Long,
     ): Candidate? {
+        if (durationMs <= 0L) return null
         val candidates = buildList { root.collectCandidates(this) }
         return candidates.map { it to it.score(title, artist, durationMs) }
-            .maxByOrNull { it.second }
-            ?.takeIf { it.second >= MINIMUM_MATCH_SCORE }
+            .filter { it.second >= MINIMUM_MATCH_SCORE }
+            .maxWithOrNull(
+                compareBy<Pair<Candidate, Int>> { it.second }
+                    .thenBy { -abs(it.first.durationMs - durationMs) },
+            )
             ?.first
     }
 
-    private fun parseResponse(raw: String): List<LyricLine>? =
-        parseTimedApple(raw) ?: ProviderLyrics.parse(raw)
+    internal fun matchingResponse(
+        raw: String,
+        durationMs: Long,
+        durationAlreadyVerified: Boolean = false,
+    ): List<LyricLine>? {
+        if (durationMs <= 0L) return null
+        val timedApple = parseTimedApple(raw)
+        if (timedApple != null) {
+            val explicitMs = runCatching { lyricsJson.parseToJsonElement(raw) }.getOrNull()
+                ?.let { (it as? JsonObject)?.extractCandidateDurationMs()?.takeIf { d -> d > 0L } }
+            if (explicitMs != null) {
+                return timedApple.takeIf { abs(explicitMs - durationMs) <= STUDIO_DURATION_TOLERANCE_MS }
+            }
+            if (durationAlreadyVerified) {
+                val spanMs = timedApple.filterNot { it.isGap }.maxOfOrNull { maxOf(it.timeMs, it.endMs) } ?: 0L
+                return timedApple.takeIf { spanMs <= durationMs + STUDIO_DURATION_TOLERANCE_MS }
+            }
+            return timedApple.takeIf { ProviderLyrics.matchesStudioDuration(timedApple, null, durationMs) }
+        }
+        val doc = ProviderLyrics.parseDocument(raw) ?: return null
+        if (doc.durationMs != null && doc.durationMs > 0L) {
+            return doc.lines.takeIf { abs(doc.durationMs - durationMs) <= STUDIO_DURATION_TOLERANCE_MS }
+        }
+        if (durationAlreadyVerified) {
+            val spanMs = doc.lines.filterNot { it.isGap }.maxOfOrNull { maxOf(it.timeMs, it.endMs) } ?: 0L
+            return doc.lines.takeIf { spanMs <= durationMs + STUDIO_DURATION_TOLERANCE_MS }
+        }
+        return doc.lines.takeIf { ProviderLyrics.matchesStudioDuration(doc, durationMs) }
+    }
 
     /** Preserve word timestamps when PaxSenix returns its structured Apple payload. */
     fun parseTimedApple(raw: String): List<LyricLine>? {
@@ -275,7 +345,7 @@ object PaxSenix {
         val id = firstString(ID_KEYS) ?: details.firstString(ID_KEYS) ?: return null
         val title = details.firstString(TITLE_KEYS) ?: return null
         val artist = details.firstString(ARTIST_KEYS) ?: details.artistNames().orEmpty()
-        return Candidate(id, title, artist, details.firstLong(DURATION_KEYS).toDurationMs())
+        return Candidate(id, title, artist, details.extractCandidateDurationMs())
     }
 
     private fun JsonObject.artistNames(): String? = when (val artists = this["artists"] ?: this["artist"]) {
@@ -294,29 +364,23 @@ object PaxSenix {
     private fun JsonObject.firstString(keys: List<String>): String? =
         keys.firstNotNullOfOrNull { string(it)?.trim()?.takeIf(String::isNotEmpty) }
 
-    private fun JsonObject.firstLong(keys: List<String>): Long? =
-        keys.firstNotNullOfOrNull { key -> (this[key] as? JsonPrimitive)?.longOrNull }
-
-    private fun JsonObject.string(key: String): String? =
-        (this[key] as? JsonPrimitive)?.contentOrNull
-
-    private fun JsonObject.long(key: String): Long? =
-        (this[key] as? JsonPrimitive)?.longOrNull
-
-    private fun Long?.toDurationMs(): Long = when {
-        this == null || this <= 0 -> 0
-        this < 10_000 -> this * 1000
-        else -> this
+    private fun JsonObject.extractCandidateDurationMs(): Long {
+        MS_CANDIDATE_KEYS.firstNotNullOfOrNull { key ->
+            (this[key] as? JsonPrimitive)?.contentOrNull?.trim()?.toDoubleOrNull()
+                ?.takeIf { it > 0.0 }
+                ?.toLong()
+        }?.let { return it }
+        return FLEXIBLE_CANDIDATE_KEYS.firstNotNullOfOrNull { key ->
+            (this[key] as? JsonPrimitive)?.contentOrNull?.let(ProviderLyrics::parseFlexibleDurationMs)
+        } ?: 0L
     }
 
     private fun Candidate.score(wantedTitle: String, wantedArtist: String, wantedDuration: Long): Int {
-        var score = textScore(title, wantedTitle, 20, 10) + textScore(artist, wantedArtist, 15, 5)
-        if (wantedDuration > 0 && durationMs > 0) score += when {
-            abs(durationMs - wantedDuration) < 3_000 -> 10
-            abs(durationMs - wantedDuration) < 10_000 -> 5
-            else -> 0
-        }
-        return score
+        if (wantedDuration <= 0L || durationMs <= 0L) return -1
+        if (abs(durationMs - wantedDuration) > STUDIO_DURATION_TOLERANCE_MS) return -1
+        val score = textScore(title, wantedTitle, 20, 10) + textScore(artist, wantedArtist, 15, 5)
+        if (score <= 0) return -1
+        return score + 10
     }
 
     private fun textScore(candidate: String, wanted: String, exact: Int, partial: Int): Int = when {
@@ -344,7 +408,14 @@ object PaxSenix {
     private val ID_KEYS = listOf("id", "trackId", "track_id", "realId")
     private val TITLE_KEYS = listOf("name", "title", "trackName", "track_name")
     private val ARTIST_KEYS = listOf("artistName", "artist_name")
-    private val DURATION_KEYS = listOf("durationInMillis", "durationMs", "duration_ms", "duration")
+    private val MS_CANDIDATE_KEYS = listOf("durationInMillis", "durationMs", "duration_ms", "trackDurationMs")
+    private val FLEXIBLE_CANDIDATE_KEYS = listOf("duration", "totalDuration", "trackDuration", "trackLength", "track_length", "length")
+
+    private fun JsonObject.string(key: String): String? =
+        (this[key] as? JsonPrimitive)?.contentOrNull
+
+    private fun JsonObject.long(key: String): Long? =
+        (this[key] as? JsonPrimitive)?.longOrNull
 
     private val APPLE_INDEX_SCRIPT = Regex("""/assets/index~[^\"]+\.js""")
     private val APPLE_TOKEN = Regex("""eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+""")

@@ -98,6 +98,7 @@ import com.music.bitchord.playback.audio.bluetooth.BluetoothAudioTracker
 import com.music.bitchord.playback.audio.bluetooth.BluetoothTelemetry
 import com.music.bitchord.MainActivity
 import com.music.bitchord.data.listentogether.ListenTogether
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.listentogether.partyQueueIndexOf
 import com.music.bitchord.data.listentogether.partyUpcomingAfter
 import com.music.bitchord.R
@@ -1205,6 +1206,9 @@ class PlaybackService : MediaLibraryService() {
             // The player this fired on, which is by definition the one the
             // session is currently pointed at.
             val exoPlayer = player ?: return
+            if (state == Player.STATE_READY && serviceLyrics == null && exoPlayer.duration > 0L) {
+                loadLyricsForCurrentTrack()
+            }
             if (state == Player.STATE_ENDED) {
                 SleepTimer.cancel()
                 // The queue ran dry, so no transition will ever close the last
@@ -2247,15 +2251,25 @@ class PlaybackService : MediaLibraryService() {
             // Only timed lines say when a loop is sung; the file's plain words can't.
             song.localUri?.let { EmbeddedLyrics.forUri(this@PlaybackService, it) }
                 ?.takeIf(EmbeddedLyrics::isSynced)
-                ?: LyricsRepository.lyrics(
-                    videoId = song.videoId,
-                    title = song.title,
-                    artist = song.artist,
-                    durationMs = durationMs,
-                    album = song.albumName,
-                    sources = AppSettings.lyricsSources.value,
-                    order = AppSettings.lyricsSourceOrder.value,
-                )?.lines
+                ?: durationMs.takeIf { it > 0L }?.let { validDurationMs ->
+                    LyricsRepository.lyrics(
+                        videoId = song.videoId,
+                        title = song.title,
+                        artist = song.artist,
+                        durationMs = validDurationMs,
+                        album = song.albumName,
+                        sources = AppSettings.lyricsSources.value,
+                        order = AppSettings.lyricsSourceOrder.value,
+                        isVideo = song.isVideo,
+                        alignmentResolver = { studioSong, videoSong ->
+                            VersionAudioAligner.resolveLyricsOffsetMs(
+                                context = this@PlaybackService,
+                                studioSong = studioSong,
+                                videoSong = videoSong,
+                            )
+                        },
+                    )?.lines
+                }
         }
     }
 
@@ -8097,6 +8111,7 @@ class PlaybackService : MediaLibraryService() {
                 AppSettings.lyricsSources,
                 AppSettings.lyricsSourceOrder,
                 AppSettings.prioritizeSyllableSync,
+                AppSettings.smartVersionAlignment,
             ).collect {
                 loadLyricsForCurrentTrack()
             }
@@ -8716,7 +8731,15 @@ class PlaybackService : MediaLibraryService() {
             return
         }
 
-        val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0 } ?: 0L
+        val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0L }
+            ?: currentSong.durationMillis().takeIf { it > 0L }
+            ?: 0L
+        if (currentSong.localUri == null && trackDurationMs <= 0L) {
+            serviceLyricsJob?.cancel()
+            serviceLyrics = null
+            stopLyricsTicker()
+            return
+        }
 
         serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {
@@ -8725,7 +8748,7 @@ class PlaybackService : MediaLibraryService() {
             // The file's plain words don't end the lookup: a source may have
             // them synced, which is all a lock-screen line can follow.
             var lines: List<LyricLine>? = embedded?.takeIf(EmbeddedLyrics::isSynced)
-            if (lines == null) {
+            if (lines == null && trackDurationMs > 0L) {
                 val found = LyricsRepository.lyrics(
                     videoId = currentSong.videoId,
                     title = currentSong.title,
@@ -8735,8 +8758,18 @@ class PlaybackService : MediaLibraryService() {
                     sources = AppSettings.lyricsSources.value,
                     order = AppSettings.lyricsSourceOrder.value,
                     prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                    isVideo = currentSong.isVideo,
+                    alignmentResolver = { studioSong, videoSong ->
+                        VersionAudioAligner.resolveLyricsOffsetMs(
+                            context = this@PlaybackService,
+                            studioSong = studioSong,
+                            videoSong = videoSong,
+                        )
+                    },
                 )
                 lines = found?.lines?.takeIf(EmbeddedLyrics::isSynced) ?: embedded ?: found?.lines
+            } else if (lines == null) {
+                lines = embedded
             }
             withContext(Dispatchers.Main) {
                 serviceLyrics = lines
@@ -10872,6 +10905,13 @@ internal fun lyricsSettingChanges(
     sources: Flow<Set<LyricsSource>>,
     order: Flow<List<LyricsSource>>,
     prioritizeSyllableSync: Flow<Boolean>,
-): Flow<List<Any>> = combine(synced, sources, order, prioritizeSyllableSync) { s, src, o, p ->
-    listOf(s, src, o, p)
+    smartVersionAlignment: Flow<Boolean> = kotlinx.coroutines.flow.flowOf(true),
+): Flow<List<Any>> = combine(
+    synced,
+    sources,
+    order,
+    prioritizeSyllableSync,
+    smartVersionAlignment,
+) { s, src, o, p, align ->
+    listOf(s, src, o, p, align)
 }.distinctUntilChanged()

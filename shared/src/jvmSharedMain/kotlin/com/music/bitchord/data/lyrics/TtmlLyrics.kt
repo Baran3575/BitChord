@@ -43,7 +43,14 @@ object TtmlLyrics {
      */
     private const val BACKGROUND_ROLE = "x-bg"
 
-    fun parse(ttml: String): List<LyricLine> = runCatching {
+    data class Document(
+        val lines: List<LyricLine>,
+        val durationMs: Long? = null,
+    )
+
+    fun parse(ttml: String): List<LyricLine> = parseDocument(ttml).lines
+
+    fun parseDocument(ttml: String): Document = runCatching {
         val factory = DocumentBuilderFactory.newInstance().apply {
             // The document declares four namespaces and we address attributes
             // by their qualified names (ttm:agent), so leave prefixes intact.
@@ -64,6 +71,7 @@ object TtmlLyrics {
             runCatching { isExpandEntityReferences = false }
         }
         val document = factory.newDocumentBuilder().parse(InputSource(StringReader(ttml)))
+        val durationMs = bodyDurationMs(document)
         val paragraphs = document.getElementsByTagName("p")
 
         // The line and the voice that sang it, kept together: which side of the
@@ -77,9 +85,24 @@ object TtmlLyrics {
         sung.sortBy { it.first.timeMs }
 
         val sides = lineAlignments(sung.map { it.second }, agentTypes(document))
-        sung.mapIndexed { index, (line, _) -> line.copy(alignment = sides[index]) }
+        val lines = sung.mapIndexed { index, (line, _) -> line.copy(alignment = sides[index]) }
             .withInstrumentalGaps()
-    }.getOrDefault(emptyList())
+        Document(lines = lines, durationMs = durationMs)
+    }.getOrDefault(Document(emptyList(), null))
+
+    private fun bodyDurationMs(document: org.w3c.dom.Document): Long? {
+        val bodyNodes = document.getElementsByTagName("body")
+            .takeIf { it.length > 0 }
+            ?: document.getElementsByTagName("tt:body")
+        for (i in 0 until bodyNodes.length) {
+            val body = bodyNodes.item(i) as? Element ?: continue
+            time(body.getAttribute("dur"))?.takeIf { it > 0L }?.let { return it }
+        }
+        return document.documentElement
+            ?.getAttribute("dur")
+            ?.let(::time)
+            ?.takeIf { it > 0L }
+    }
 
     /** One optional parser feature, set if this parser has it. */
     private fun DocumentBuilderFactory.harden(feature: String, value: Boolean = true) {

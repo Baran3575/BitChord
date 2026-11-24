@@ -5,21 +5,95 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlin.math.abs
+import kotlin.math.roundToLong
+
+/** Strict ±3.5s tolerance shared by every studio lyric source. */
+internal const val STUDIO_DURATION_TOLERANCE_MS = 3_500L
 
 /** Turns the wire formats used by the smaller providers into BitChord lyrics. */
 object ProviderLyrics {
 
-    fun parse(raw: String): List<LyricLine>? {
-        val content = unescapeTtml(unwrap(raw) ?: return null)
-        val lines = when {
+    data class Document(
+        val lines: List<LyricLine>,
+        val durationMs: Long? = null,
+    )
+
+    fun parse(raw: String): List<LyricLine>? = parseDocument(raw)?.lines
+
+    fun parseDocument(raw: String): Document? {
+        val cleaned = stripCodeFence(raw) ?: return null
+        val json = runCatching { lyricsJson.parseToJsonElement(cleaned) }.getOrNull()
+        val wrapperDurationMs = json?.let(::extractDurationMs)
+        val unwrapped = if (json != null) {
+            extract(json)?.trim()?.takeIf { it.isNotEmpty() }
+        } else {
+            cleaned
+        } ?: return null
+        val content = unescapeTtml(unwrapped)
+        val (lines, contentDurationMs) = when {
             content.contains(Regex("""<tt(?:\s|>)""", RegexOption.IGNORE_CASE)) ||
-                content.contains("http://www.w3.org/ns/ttml", ignoreCase = true) -> TtmlLyrics.parse(content)
-            KaraokeLrc.looksLike(content) -> KaraokeLrc.parse(content)
-            content.trimStart().startsWith("<") -> emptyList()
-            else -> EnhancedLrc.parse(content).ifEmpty { LrcLib.parseLrc(content) }
-                .ifEmpty { plain(content) }
+                content.contains("http://www.w3.org/ns/ttml", ignoreCase = true) -> {
+                val doc = TtmlLyrics.parseDocument(content)
+                doc.lines to doc.durationMs
+            }
+            KaraokeLrc.looksLike(content) -> KaraokeLrc.parse(content) to lrcHeaderDurationMs(content)
+            content.trimStart().startsWith("<") -> emptyList<LyricLine>() to null
+            else -> {
+                val parsed = EnhancedLrc.parse(content)
+                    .ifEmpty { LrcLib.parseLrc(content) }
+                    .ifEmpty { plain(content) }
+                parsed to lrcHeaderDurationMs(content)
+            }
         }
-        return lines.takeIf { found -> found.any { it.text.isNotBlank() } }
+        val usable = lines.takeIf { found -> found.any { it.text.isNotBlank() } } ?: return null
+        return Document(lines = usable, durationMs = contentDurationMs ?: wrapperDurationMs)
+    }
+
+    internal fun matchesStudioDuration(
+        document: Document,
+        wantedDurationMs: Long,
+    ): Boolean = matchesStudioDuration(document.lines, document.durationMs, wantedDurationMs)
+
+    internal fun matchesStudioDuration(
+        lines: List<LyricLine>,
+        explicitDurationMs: Long?,
+        wantedDurationMs: Long,
+    ): Boolean {
+        if (wantedDurationMs <= 0L || lines.isEmpty()) return false
+        if (explicitDurationMs != null && explicitDurationMs > 0L) {
+            return abs(explicitDurationMs - wantedDurationMs) <= STUDIO_DURATION_TOLERANCE_MS
+        }
+        val spanMs = lines.filterNot { it.isGap }.maxOfOrNull { maxOf(it.timeMs, it.endMs) } ?: 0L
+        return spanMs > 0L && abs(spanMs - wantedDurationMs) <= STUDIO_DURATION_TOLERANCE_MS
+    }
+
+    internal fun parseFlexibleDurationMs(rawValue: String?): Long? {
+        val raw = rawValue?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        if (':' in raw || raw.endsWith("ms", ignoreCase = true) || raw.endsWith("s", ignoreCase = true)) {
+            return TtmlLyrics.time(raw.lowercase())?.takeIf { it > 0L }
+        }
+        val numeric = raw.toDoubleOrNull() ?: return null
+        if (numeric <= 0.0) return null
+        return if ('.' in raw || numeric < 1_000.0) {
+            (numeric * 1_000.0).roundToLong()
+        } else {
+            numeric.roundToLong()
+        }
+    }
+
+    internal fun lrcHeaderDurationMs(content: String): Long? {
+        for (line in content.lineSequence()) {
+            val trimmed = line.trim()
+            TOTAL_TAG.matchEntire(trimmed)?.groupValues?.get(1)?.toLongOrNull()
+                ?.takeIf { it > 0L }
+                ?.let { return it }
+            LENGTH_TAG.matchEntire(trimmed)?.groupValues?.get(1)?.let(::parseFlexibleDurationMs)
+                ?.takeIf { it > 0L }
+                ?.let { return it }
+        }
+        return null
     }
 
     private fun plain(content: String): List<LyricLine> {
@@ -29,17 +103,45 @@ object ProviderLyrics {
             .map { LyricLine(0L, it) }.toList()
     }
 
-    /** Providers sometimes wrap the same lyric string in one or two JSON envelopes. */
-    internal fun unwrap(raw: String): String? {
+    private fun stripCodeFence(raw: String): String? {
         var value = raw.replace("\uFEFF", "").trim()
         if (value.startsWith("```")) {
             value = value.lineSequence().drop(1).toList()
                 .let { if (it.lastOrNull()?.trim() == "```") it.dropLast(1) else it }
                 .joinToString("\n").trim()
         }
-        if (value.isBlank()) return null
+        return value.takeIf { it.isNotBlank() }
+    }
+
+    /** Providers sometimes wrap the same lyric string in one or two JSON envelopes. */
+    internal fun unwrap(raw: String): String? {
+        val value = stripCodeFence(raw) ?: return null
         val json = runCatching { lyricsJson.parseToJsonElement(value) }.getOrNull() ?: return value
         return extract(json)?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    private fun extractDurationMs(element: JsonElement): Long? = when (element) {
+        JsonNull, is JsonArray -> null
+        is JsonPrimitive -> if (element.isString) {
+            val nested = runCatching { lyricsJson.parseToJsonElement(element.content.trim()) }.getOrNull()
+            if (nested != null && nested !is JsonPrimitive) extractDurationMs(nested) else null
+        } else {
+            null
+        }
+        is JsonObject -> {
+            MS_DURATION_KEYS.asSequence().mapNotNull { key ->
+                (element[key] as? JsonPrimitive)?.contentOrNull?.trim()?.toDoubleOrNull()
+                    ?.takeIf { it > 0.0 }
+                    ?.roundToLong()
+            }.firstOrNull()
+                ?: FLEXIBLE_DURATION_KEYS.asSequence().mapNotNull { key ->
+                    (element[key] as? JsonPrimitive)?.contentOrNull?.let(::parseFlexibleDurationMs)
+                }.firstOrNull()
+                ?: (element["metadata"] as? JsonObject)?.let(::extractDurationMs)
+                ?: (element["data"] as? JsonObject)?.let(::extractDurationMs)
+                ?: (element["result"] as? JsonObject)?.let(::extractDurationMs)
+                ?: (element["response"] as? JsonObject)?.let(::extractDurationMs)
+        }
     }
 
     private fun extract(element: JsonElement): String? = when (element) {
@@ -70,6 +172,10 @@ object ProviderLyrics {
         "plainLyrics", "syncedLyrics", "line", "lines", "lyric",
         "data", "result", "response",
     )
+    private val MS_DURATION_KEYS = listOf("durationInMillis", "durationMs", "duration_ms", "trackDurationMs")
+    private val FLEXIBLE_DURATION_KEYS = listOf("totalDuration", "duration", "trackDuration", "trackLength", "track_length", "length")
+    private val TOTAL_TAG = Regex("""^\[total:\s*(\d+)\s*]$""", RegexOption.IGNORE_CASE)
+    private val LENGTH_TAG = Regex("""^\[length:\s*([^\]]+)\s*]$""", RegexOption.IGNORE_CASE)
 }
 
 /** QQ/QRC and NetEase YRC: millisecond line and word ranges. */

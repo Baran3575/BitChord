@@ -1,5 +1,7 @@
 package com.music.bitchord.data.lyrics
 
+import com.music.bitchord.data.model.VersionTimeMap
+
 /**
  * One word of a line, with the stretch of the song it is sung over.
  *
@@ -70,6 +72,34 @@ data class LyricWord(
         }
         return copy(text = trimmed, syllables = LyricSyllable.normalized(parts, trimmed.length))
     }
+
+    /** Shifts this word and its syllables by [offsetMs], clamped to non-negative timestamps. */
+    fun shifted(offsetMs: Long): LyricWord {
+        if (offsetMs == 0L) return this
+        val newStart = (startMs + offsetMs).coerceAtLeast(0L)
+        val newEnd = maxOf(newStart, (endMs + offsetMs).coerceAtLeast(0L))
+        return copy(
+            startMs = newStart,
+            endMs = newEnd,
+            syllables = syllables.map { it.shifted(offsetMs, newStart, newEnd) },
+        )
+    }
+
+    /**
+     * Remaps this word and its syllables through [timeMap], clamping the end of
+     * the word and any trailing syllables at [startMs]'s segment boundary so
+     * nothing stretches across a skit.
+     */
+    fun remapped(timeMap: VersionTimeMap): LyricWord {
+        val (newStart, newEnd) = timeMap.mapSpan(startMs, endMs)
+        val newSyllables = syllables.map { syllable ->
+            val (rawSylStart, rawSylEnd) = timeMap.mapSpan(syllable.startMs, syllable.endMs)
+            val clampedStart = rawSylStart.coerceIn(newStart, newEnd)
+            val clampedEnd = rawSylEnd.coerceIn(clampedStart, newEnd)
+            syllable.copy(startMs = clampedStart, endMs = clampedEnd)
+        }
+        return copy(startMs = newStart, endMs = newEnd, syllables = newSyllables)
+    }
 }
 
 /**
@@ -82,6 +112,17 @@ data class LyricSyllable(
     val startChar: Int,
     val endChar: Int,
 ) {
+    fun shifted(
+        offsetMs: Long,
+        minMs: Long = 0L,
+        maxMs: Long = Long.MAX_VALUE,
+    ): LyricSyllable {
+        if (offsetMs == 0L && startMs >= minMs && endMs <= maxMs) return this
+        val newStart = (startMs + offsetMs).coerceAtLeast(0L).coerceIn(minMs, maxMs)
+        val newEnd = (endMs + offsetMs).coerceAtLeast(0L).coerceIn(newStart, maxMs)
+        return copy(startMs = newStart, endMs = newEnd)
+    }
+
     companion object {
         /**
          * Tidies a word's syllables, as a parser collected them, into what
@@ -361,6 +402,71 @@ data class LyricLine(
      */
     fun isGrowing(positionMs: Long): Boolean = growingWords.any {
         positionMs >= it.startMs && positionMs <= it.restsAtMs
+    }
+
+    /** Shifts this line, its words, syllables, and answering vocal by [offsetMs]. */
+    fun shifted(offsetMs: Long): LyricLine {
+        if (offsetMs == 0L) return this
+        val newWords = words.map { it.shifted(offsetMs) }
+        val rawTime = (timeMs + offsetMs).coerceAtLeast(0L)
+        val newTime = if (newWords.isNotEmpty()) minOf(rawTime, newWords.first().startMs) else rawTime
+        val newSungUntil = sungUntilMs?.let { maxOf(newTime, (it + offsetMs).coerceAtLeast(0L)) }
+        return copy(
+            timeMs = newTime,
+            words = newWords,
+            sungUntilMs = newSungUntil,
+            background = background?.shifted(offsetMs),
+            timingSource = timingSource?.shifted(offsetMs),
+        )
+    }
+
+    /**
+     * Remaps this line, its words, syllables, and answering vocal onto the
+     * target timeline of [timeMap], clamping end timestamps at segment
+     * boundaries so held notes never stretch across skits.
+     */
+    fun remapped(timeMap: VersionTimeMap, nextStudioTimeMs: Long? = null): LyricLine {
+        val newWords = words.map { it.remapped(timeMap) }
+        val lineSegment = timeMap.segmentAt(timeMs)
+        val newTime = if (newWords.isNotEmpty()) {
+            val firstWordSegment = timeMap.segmentAt(words.first().startMs)
+            val rawMappedTime = timeMap.map(timeMs)
+            if (lineSegment == firstWordSegment) {
+                minOf(rawMappedTime, newWords.first().startMs)
+            } else {
+                maxOf(firstWordSegment.toStartMs, minOf(rawMappedTime, newWords.first().startMs))
+            }
+        } else {
+            timeMap.map(timeMs)
+        }
+        val activeSegment = if (newWords.isNotEmpty()) {
+            timeMap.segmentAt(words.first().startMs)
+        } else {
+            lineSegment
+        }
+        val segmentTargetEnd = activeSegment.toStartMs + activeSegment.durationMs
+        val newSungUntil = when {
+            sungUntilMs != null -> {
+                val (_, mappedEnd) = timeMap.mapSpan(timeMs, sungUntilMs)
+                maxOf(newTime, mappedEnd.coerceAtMost(segmentTargetEnd))
+            }
+            newWords.isEmpty() && nextStudioTimeMs != null -> {
+                val nextSegment = timeMap.segmentAt(nextStudioTimeMs)
+                if (nextSegment != activeSegment && segmentTargetEnd > newTime) {
+                    segmentTargetEnd
+                } else {
+                    null
+                }
+            }
+            else -> null
+        }
+        return copy(
+            timeMs = newTime,
+            words = newWords,
+            sungUntilMs = newSungUntil,
+            background = background?.remapped(timeMap),
+            timingSource = timingSource?.remapped(timeMap, nextStudioTimeMs),
+        )
     }
 }
 

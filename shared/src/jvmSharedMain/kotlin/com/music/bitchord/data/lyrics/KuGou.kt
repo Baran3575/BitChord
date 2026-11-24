@@ -21,33 +21,36 @@ import kotlin.math.min
  */
 object KuGou {
 
-    private const val DURATION_TOLERANCE_SECONDS = 8
-
     suspend fun lyrics(
         title: String,
         artist: String,
         durationMs: Long,
         album: String? = null,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        if (durationMs <= 0L) return@withContext null
         val keyword = keyword(title, artist, album)
-        val seconds = (durationMs / 1000).toInt()
 
-        val candidate = searchSongs(keyword, seconds)?.firstNotNullOfOrNull { hash ->
-            searchLyrics(hash = hash)?.firstOrNull()
-        } ?: searchLyrics(keyword = keyword, seconds = seconds)?.firstOrNull()
+        val candidate = searchSongs(keyword, durationMs)?.firstNotNullOfOrNull { hash ->
+            searchLyrics(hash = hash, durationMs = durationMs)?.firstOrNull()
+        } ?: searchLyrics(keyword = keyword, durationMs = durationMs)?.firstOrNull()
             ?: return@withContext null
 
         val lrc = download(candidate.id, candidate.accesskey) ?: return@withContext null
+        val headerDurationMs = ProviderLyrics.lrcHeaderDurationMs(lrc)
+        if (headerDurationMs != null && abs(headerDurationMs - durationMs) > STUDIO_DURATION_TOLERANCE_MS) {
+            return@withContext null
+        }
         LrcLib.parseLrc(lrc).takeIf { it.isNotEmpty() }
     }
 
     /**
      * Song hashes worth trying, restricted to cuts within
-     * [DURATION_TOLERANCE_SECONDS] of the track being played — otherwise the
+     * [STUDIO_DURATION_TOLERANCE_MS] of the track being played — otherwise the
      * first result for a common title is as likely to be a cover or a remix
      * as the right recording — and ordered closest match first.
      */
-    private fun searchSongs(keyword: Keyword, seconds: Int): List<String>? {
+    private fun searchSongs(keyword: Keyword, durationMs: Long): List<String>? {
+        if (durationMs <= 0L) return null
         val url = "https://mobileservice.kugou.com/api/v3/search/song".toHttpUrl().newBuilder()
             .addQueryParameter("version", "9108")
             .addQueryParameter("plat", "0")
@@ -56,14 +59,25 @@ object KuGou {
             .addQueryParameter("keyword", keyword.query)
             .build()
         val body = lyricsGet(url.toString()) ?: return null
+        return filterSongHashes(body, durationMs)
+    }
+
+    internal fun filterSongHashes(body: String, durationMs: Long): List<String>? {
+        if (durationMs <= 0L) return null
         val response = runCatching { lyricsJson.decodeFromString<SearchSongResponse>(body) }.getOrNull()
-        return response?.data?.info.orEmpty()
-            .filter { seconds <= 0 || abs(it.duration - seconds) <= DURATION_TOLERANCE_SECONDS }
-            .sortedBy { abs(it.duration - seconds) }
+            ?: return null
+        return response.data?.info.orEmpty()
+            .filter { it.duration > 0 && abs(it.duration * 1_000L - durationMs) <= STUDIO_DURATION_TOLERANCE_MS }
+            .sortedBy { abs(it.duration * 1_000L - durationMs) }
             .map { it.hash }
     }
 
-    private fun searchLyrics(hash: String? = null, keyword: Keyword? = null, seconds: Int = -1): List<Candidate>? {
+    private fun searchLyrics(
+        hash: String? = null,
+        keyword: Keyword? = null,
+        durationMs: Long,
+    ): List<Candidate>? {
+        if (durationMs <= 0L) return null
         val builder = "https://lyrics.kugou.com/search".toHttpUrl().newBuilder()
             .addQueryParameter("ver", "1")
             .addQueryParameter("man", "yes")
@@ -72,13 +86,30 @@ object KuGou {
             hash != null -> builder.addQueryParameter("hash", hash)
             keyword != null -> {
                 builder.addQueryParameter("keyword", keyword.query)
-                if (seconds > 0) builder.addQueryParameter("duration", (seconds * 1000).toString())
+                builder.addQueryParameter("duration", durationMs.toString())
             }
             else -> return null
         }
         val body = lyricsGet(builder.build().toString()) ?: return null
+        return filterCandidates(body, durationMs, requireDuration = hash == null)
+    }
+
+    internal fun filterCandidates(
+        body: String,
+        durationMs: Long,
+        requireDuration: Boolean,
+    ): List<Candidate>? {
+        if (durationMs <= 0L) return null
         val response = runCatching { lyricsJson.decodeFromString<SearchLyricsResponse>(body) }.getOrNull()
-        return response?.candidates
+            ?: return null
+        return response.candidates.filter { candidate ->
+            val candidateDurationMs = candidate.durationMs()
+            if (candidateDurationMs <= 0L) {
+                !requireDuration
+            } else {
+                abs(candidateDurationMs - durationMs) <= STUDIO_DURATION_TOLERANCE_MS
+            }
+        }
     }
 
     private fun download(id: String, accessKey: String): String? {
@@ -174,7 +205,17 @@ object KuGou {
     private data class SearchLyricsResponse(val candidates: List<Candidate> = emptyList())
 
     @Serializable
-    private data class Candidate(val id: String, val accesskey: String)
+    internal data class Candidate(
+        val id: String,
+        val accesskey: String,
+        val duration: Long = -1L,
+    ) {
+        fun durationMs(): Long = when {
+            duration <= 0L -> -1L
+            duration < 1_000L -> duration * 1_000L
+            else -> duration
+        }
+    }
 
     @Serializable
     private data class DownloadResponse(val content: String = "")
