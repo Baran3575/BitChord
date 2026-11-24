@@ -34,22 +34,27 @@ object Unison {
         artist: String,
         durationMs: Long,
         album: String? = null,
+        get: suspend (String) -> String? = { lyricsGet(it) },
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val url = BASE.toHttpUrl().newBuilder()
-            .addQueryParameter("song", title)
-            .addQueryParameter("artist", artist)
-            .apply {
-                if (!album.isNullOrBlank()) addQueryParameter("album", album)
-                val seconds = durationMs / 1000
-                if (seconds > 0) addQueryParameter("duration", seconds.toString())
-            }
-            .build()
+        val seconds = durationMs / 1000
+        for (stage in lyricsQueryStages(title, artist, album)) {
+            val url = BASE.toHttpUrl().newBuilder()
+                .addQueryParameter("song", stage.title)
+                .addQueryParameter("artist", stage.artist)
+                .apply {
+                    if (!stage.album.isNullOrBlank()) addQueryParameter("album", stage.album)
+                    if (seconds > 0) addQueryParameter("duration", seconds.toString())
+                }
+                .build()
 
-        val body = lyricsGet(url.toString()) ?: return@withContext null
-        val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
-            ?: return@withContext null
-        if (response.success != true) return@withContext null
-        linesOf(response.data ?: return@withContext null)
+            val body = get(url.toString()) ?: continue
+            val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
+                ?: continue
+            if (response.success != true) continue
+            val lines = response.data?.let(::linesOf)
+            if (!lines.isNullOrEmpty()) return@withContext lines
+        }
+        null
     }
 
     /** The three shapes, told apart by what the entry says it is. */

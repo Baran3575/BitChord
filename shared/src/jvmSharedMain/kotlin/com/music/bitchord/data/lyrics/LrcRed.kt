@@ -37,13 +37,16 @@ object LrcRed {
      * at 356.5 s against 352.0 s for the live cut — close enough that the
      * version words in [best] have to do most of the work, not this.
      */
-    private const val DURATION_TOLERANCE_SECONDS = 3.0
+    internal const val DURATION_TOLERANCE_SECONDS = 3.0
 
     /** `CC-XXX-YY-NNNNN` without the dashes — and nothing else goes into a path. */
     private val ISRC = Regex("""[A-Z]{2}[A-Z0-9]{3}\d{7}""")
 
+    fun normalizeIsrc(isrc: String?): String? =
+        isrc?.trim()?.replace("-", "")?.uppercase(Locale.ROOT)?.takeIf { ISRC.matches(it) }
+
     fun documentUrl(isrc: String): String? =
-        isrc.trim().uppercase(Locale.ROOT).takeIf { ISRC.matches(it) }?.let { "${BASE}s/$it.ttml" }
+        normalizeIsrc(isrc)?.let { "${BASE}s/$it.ttml" }
 
     /**
      * [get] is how the document is fetched; [LyricsRepository] passes one that
@@ -55,14 +58,27 @@ object LrcRed {
         durationMs: Long,
         isrc: String? = null,
         get: suspend (String) -> String? = { lyricsGet(it) },
+        isrcProvider: (() -> String?)? = null,
+        onIsrc: ((String) -> Unit)? = null,
+        searchGet: suspend (String) -> String? = { lyricsGet(it) },
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val known = isrc?.let(::documentUrl)
-        if (known != null) document(known, get)?.let { return@withContext it }
+        val candidateIsrc = isrc ?: isrcProvider?.invoke()
+        val known = candidateIsrc?.let(::documentUrl)
+        if (known != null) {
+            document(known, get)?.let { lines ->
+                normalizeIsrc(candidateIsrc)?.let { onIsrc?.invoke(it) }
+                return@withContext lines
+            }
+        }
 
         // A known recording lrc.red doesn't have — a local file's tag naming a
         // release it never indexed — still gets a search: the same song is
         // often catalogued under a sibling release's code.
-        val hit = search(title, artist, durationMs) ?: return@withContext null
+        val hit = search(title, artist, durationMs, searchGet) ?: return@withContext null
+        val normalizedHitIsrc = normalizeIsrc(hit.isrc)
+        if (normalizedHitIsrc != null) {
+            onIsrc?.invoke(normalizedHitIsrc)
+        }
         val found = hit.isrc?.let(::documentUrl)?.takeIf { it != known } ?: return@withContext null
         document(found, get)
     }
@@ -70,14 +86,42 @@ object LrcRed {
     private suspend fun document(url: String, get: suspend (String) -> String?): List<LyricLine>? =
         get(url)?.let(TtmlLyrics::parse)?.takeIf { it.isNotEmpty() }
 
-    private fun search(title: String, artist: String, durationMs: Long): Hit? {
+    private suspend fun search(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        searchGet: suspend (String) -> String?,
+    ): Hit? {
         val url = "${BASE}search.json".toHttpUrl().newBuilder()
             .addQueryParameter("q", "$title $artist".trim())
             .build()
-        val body = lyricsGet(url.toString()) ?: return null
+        val body = searchGet(url.toString()) ?: return null
         val hits = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()?.hits
             ?: return null
         return best(hits, title, artist, durationMs)
+    }
+
+    internal fun durationDistanceSeconds(candidateSeconds: Double?, durationMs: Long): Double =
+        if (durationMs > 0 && candidateSeconds != null) abs(candidateSeconds - durationMs / 1000.0) else 0.0
+
+    internal fun matchesCandidate(
+        candidateIsrc: String?,
+        candidateTitle: String?,
+        candidateArtist: String?,
+        candidateDurationSeconds: Double?,
+        wantedTitle: String,
+        wantedArtist: String,
+        wantedDurationMs: Long,
+    ): Boolean {
+        val name = candidateTitle ?: return false
+        if (candidateIsrc?.let(::documentUrl) == null) return false
+        val wantedCore = coreOf(wantedTitle)
+        val wantedVersion = versionOf(wantedTitle)
+        val wantedArtists = artistsOf(wantedArtist)
+        return coreOf(name) == wantedCore &&
+            versionOf(name) == wantedVersion &&
+            (wantedArtists.isEmpty() || artistsOf(candidateArtist.orEmpty()).any { it in wantedArtists }) &&
+            durationDistanceSeconds(candidateDurationSeconds, wantedDurationMs) <= DURATION_TOLERANCE_SECONDS
     }
 
     /**
@@ -97,26 +141,10 @@ object LrcRed {
      * Of the hits that pass, the closest in length wins, and the search's own
      * rank breaks a tie.
      */
-    fun best(hits: List<Hit>, title: String, artist: String, durationMs: Long): Hit? {
-        val wantedTitle = coreOf(title)
-        val wantedVersion = versionOf(title)
-        val wantedArtists = artistsOf(artist)
-        val seconds = durationMs / 1000.0
-
-        fun distance(hit: Hit): Double =
-            if (durationMs > 0 && hit.duration != null) abs(hit.duration - seconds) else 0.0
-
-        return hits
-            .filter { hit ->
-                val name = hit.title ?: return@filter false
-                hit.isrc?.let(::documentUrl) != null &&
-                    coreOf(name) == wantedTitle &&
-                    versionOf(name) == wantedVersion &&
-                    (wantedArtists.isEmpty() || artistsOf(hit.artist.orEmpty()).any { it in wantedArtists }) &&
-                    distance(hit) <= DURATION_TOLERANCE_SECONDS
-            }
-            .minByOrNull(::distance)
-    }
+    fun best(hits: List<Hit>, title: String, artist: String, durationMs: Long): Hit? =
+        hits.filter { hit ->
+            matchesCandidate(hit.isrc, hit.title, hit.artist, hit.duration, title, artist, durationMs)
+        }.minByOrNull { durationDistanceSeconds(it.duration, durationMs) }
 
     /** "Song (Live) - 2011 Remaster" → "song". */
     private fun coreOf(title: String): String =

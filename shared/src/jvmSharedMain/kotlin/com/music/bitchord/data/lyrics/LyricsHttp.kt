@@ -40,16 +40,32 @@ private val authenticatedClient by lazy {
         .build()
 }
 
-/** Body of a successful GET, or null for any failure at all. */
-internal fun lyricsGet(url: String): String? = runCatching {
+internal data class LyricsHttpResponse(
+    val code: Int,
+    val body: String?,
+    val contentType: String? = null,
+) {
+    val isSuccessful: Boolean get() = code in 200..299
+}
+
+/** Status-aware GET so callers can tell a 404 miss apart from a dead host or auth error. */
+internal fun lyricsRequest(url: String): LyricsHttpResponse? = runCatching {
     val request = Request.Builder().url(url)
         .header("User-Agent", LYRICS_AGENT)
         .header("Accept", "application/json")
         .build()
     client.newCall(request).execute().use { response ->
-        if (response.isSuccessful) response.body?.string() else null
+        LyricsHttpResponse(
+            code = response.code,
+            body = response.body?.string(),
+            contentType = response.header("Content-Type"),
+        )
     }
 }.getOrNull()
+
+/** Body of a successful GET, or null for any failure at all. */
+internal fun lyricsGet(url: String): String? =
+    lyricsRequest(url)?.takeIf { it.isSuccessful }?.body
 
 /** Body of an authenticated provider GET without service-specific browser headers. */
 internal fun lyricsGetBearer(url: String, bearer: String): String? = runCatching {
@@ -65,11 +81,11 @@ internal fun lyricsGetBearer(url: String, bearer: String): String? = runCatching
 }.getOrNull()
 
 /**
- * [lyricsGet], with a bearer token and the headers Apple's own web player
- * sends alongside one — `amp-api.music.apple.com` answers a token with no
- * `Origin` at all the same way it answers a wrong one, with a 403.
+ * Status-aware authenticated GET with the headers Apple's web player sends
+ * alongside its bearer token (`Origin` and `Referer`), allowing callers to
+ * distinguish HTTP 401 token rejection from other failures.
  */
-internal fun lyricsGetAuthorized(url: String, bearer: String): String? = runCatching {
+internal fun lyricsRequestAuthorized(url: String, bearer: String): LyricsHttpResponse? = runCatching {
     val request = Request.Builder().url(url)
         .header("User-Agent", LYRICS_AGENT)
         .header("Accept", "application/json")
@@ -78,6 +94,18 @@ internal fun lyricsGetAuthorized(url: String, bearer: String): String? = runCatc
         .header("Referer", "https://music.apple.com/")
         .build()
     client.newCall(request).execute().use { response ->
-        if (response.isSuccessful) response.body?.string() else null
+        LyricsHttpResponse(
+            code = response.code,
+            body = response.body?.string(),
+            contentType = response.header("Content-Type"),
+        )
     }
 }.getOrNull()
+
+/**
+ * [lyricsGet], with a bearer token and the headers Apple's own web player
+ * sends alongside one — `amp-api.music.apple.com` answers a token with no
+ * `Origin` at all the same way it answers a wrong one, with a 403.
+ */
+internal fun lyricsGetAuthorized(url: String, bearer: String): String? =
+    lyricsRequestAuthorized(url, bearer)?.takeIf { it.isSuccessful }?.body

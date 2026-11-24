@@ -688,14 +688,11 @@ object AppSettings {
     val lyricsSourceOrder = MutableStateFlow<List<LyricsSource>>(LyricsSource.offered)
 
     /**
-     * Off, the highest-priority source to answer at all is taken as the
-     * lyrics, word-synced or not. On, a merely line-synced answer is held as
-     * a fallback while the rest of [lyricsSourceOrder] is still checked for a
-     * word-synced one — worth the extra network calls to some, not to others,
-     * which is why it defaults off rather than being how [LyricsRepository]
-     * always behaved.
+     * On by default: a merely line-synced answer is held as a fallback while the
+     * rest of [lyricsSourceOrder] is checked for a word-synced one. Off, the
+     * highest-priority source to answer at all is taken as the lyrics.
      */
-    val prioritizeSyllableSync = MutableStateFlow(false)
+    val prioritizeSyllableSync = MutableStateFlow(true)
 
     /** User-issued credential required by api.paxsenix.org. */
     val paxSenixApiKey = MutableStateFlow("")
@@ -1171,7 +1168,7 @@ object AppSettings {
         syncedLyrics.value = prefs.getBoolean(KEY_SYNCED_LYRICS, true)
         lyricsSources.value = readLyricsSources()
         lyricsSourceOrder.value = readLyricsSourceOrder()
-        prioritizeSyllableSync.value = prefs.getBoolean(KEY_PRIORITIZE_SYLLABLE_SYNC, false)
+        prioritizeSyllableSync.value = readPrioritizeSyllableSync(prefs)
         paxSenixApiKey.value = secret(KEY_PAXSENIX_API_KEY)
         com.music.bitchord.data.lyrics.PaxSenix.setApiKey(paxSenixApiKey.value)
         audioCacheLimitBytes.value = clampCacheLimit(prefs.getLong(KEY_CACHE_LIMIT, DEFAULT_CACHE_LIMIT_BYTES))
@@ -1795,6 +1792,14 @@ object AppSettings {
         return LyricsSource.ordered(saved)
     }
 
+    internal fun readPrioritizeSyllableSync(sourcePrefs: SharedPreferences): Boolean =
+        sourcePrefs.getBoolean(KEY_PRIORITIZE_SYLLABLE_SYNC, true)
+
+    internal fun attachPrefsForTests(testPrefs: SharedPreferences) {
+        prefs = testPrefs
+        prioritizeSyllableSync.value = readPrioritizeSyllableSync(testPrefs)
+    }
+
     fun setPrioritizeSyllableSync(value: Boolean) {
         prioritizeSyllableSync.value = value
         prefs.edit().putBoolean(KEY_PRIORITIZE_SYLLABLE_SYNC, value).apply()
@@ -1815,7 +1820,7 @@ object AppSettings {
     fun resetLyricsSourceSettings() {
         setLyricsSources(LyricsSource.offered.toSet())
         setLyricsSourceOrder(LyricsSource.offered)
-        setPrioritizeSyllableSync(false)
+        setPrioritizeSyllableSync(true)
     }
 
     fun setAnimatedCanvas(value: Boolean) {

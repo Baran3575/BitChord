@@ -185,6 +185,7 @@ data class AddonTrack(
     @SerialName("title") val title: String = "",
     @SerialName("artist") val artist: String = "",
     @SerialName("album") val album: String = "",
+    @SerialName("isrc") val isrc: String? = null,
     /** Seconds. Read as a double so an addon sending `240.0` is not a parse failure. */
     @SerialName("duration") val duration: Double? = null,
     @SerialName("artworkURL") val artworkURL: String? = null,

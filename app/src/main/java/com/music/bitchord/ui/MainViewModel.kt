@@ -356,12 +356,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Completed hits are retained for the playing track so choosing one is instant. */
     private val lyricsProviderResults = ConcurrentHashMap<LyricsSource, LyricsRepository.Result>()
 
-    private data class LyricsRequest(
+    internal data class LyricsRequest(
         val videoId: String,
         val title: String,
         val artist: String,
         val durationMs: Long,
-        val album: String?,
+        val album: String? = null,
+        val localUri: String? = null,
+        val isrc: String? = null,
     )
 
     private var currentLyricsRequest: LyricsRequest? = null
@@ -393,6 +395,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         durationMs: Long,
         album: String? = null,
         localUri: String? = null,
+        isrc: String? = null,
     ) {
         val sources = if (AppSettings.syncedLyrics.value) {
             AppSettings.lyricsSources.value
@@ -402,7 +405,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val key = lyricsLookupKey(
             videoId, sources, AppSettings.lyricsSourceOrder.value, AppSettings.prioritizeSyllableSync.value,
         )
-        if (lyricsFor == key) return
+        val cleanAlbum = album?.takeIf { it.isNotBlank() }
+        val cleanIsrc = isrc?.takeIf { it.isNotBlank() }
+        if (lyricsFor == key) {
+            val previous = currentLyricsRequest?.takeIf { it.videoId == videoId }
+            val mergedAlbum = cleanAlbum ?: previous?.album
+            val mergedIsrc = cleanIsrc ?: previous?.isrc
+            if (previous != null) {
+                currentLyricsRequest = previous.copy(
+                    durationMs = if (durationMs > 0L) durationMs else previous.durationMs,
+                    album = mergedAlbum,
+                    localUri = localUri ?: previous.localUri,
+                    isrc = mergedIsrc,
+                )
+            }
+            val hasSyncedLyrics = _lyrics.value?.let(EmbeddedLyrics::isSynced) == true
+            // Keep existing synced lyrics or let an already-running lookup pick up
+            // the updated currentLyricsRequest if its initial pass misses.
+            if (!shouldRetryLyricsWithBackfilledMetadata(
+                    previousAlbum = previous?.album,
+                    mergedAlbum = mergedAlbum,
+                    previousIsrc = previous?.isrc,
+                    mergedIsrc = mergedIsrc,
+                    hasSyncedLyrics = hasSyncedLyrics,
+                    lyricsChecked = _lyricsChecked.value,
+                )
+            ) {
+                return
+            }
+        }
         // The duration lands a beat after the track, and a database match needs
         // it. Turned away here rather than inside the job below: claiming the
         // lookup first and giving it up asynchronously means the very re-trigger
@@ -411,10 +442,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // by nobody — which is what left a paused track loading for ever, since
         // pausing is when the duration is most likely to arrive a frame late.
         if (localUri == null && durationMs <= 0L) return
+        val existingForTrack = currentLyricsRequest?.takeIf { it.videoId == videoId }
+        val effectiveAlbum = cleanAlbum ?: existingForTrack?.album
+        val effectiveLocalUri = localUri ?: existingForTrack?.localUri
+        val effectiveInitialIsrc = cleanIsrc ?: existingForTrack?.isrc
         lyricsFor = key
         lyricsGeneration += 1
         val generation = lyricsGeneration
-        currentLyricsRequest = LyricsRequest(videoId, title, artist, durationMs, album)
+        currentLyricsRequest = LyricsRequest(
+            videoId = videoId,
+            title = title,
+            artist = artist,
+            durationMs = durationMs,
+            album = effectiveAlbum,
+            localUri = effectiveLocalUri,
+            isrc = effectiveInitialIsrc,
+        )
         selectedLyricsSource = null
         manualLyricsJobs.values.forEach(Job::cancel)
         manualLyricsJobs.clear()
@@ -443,8 +486,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // on them would cost every such file the synced lyrics it got
             // before the file's own words were read at all.
             var embeddedPlain: List<LyricLine>? = null
-            if (localUri != null) {
-                EmbeddedLyrics.forUri(getApplication(), localUri)?.let { embedded ->
+            if (effectiveLocalUri != null) {
+                EmbeddedLyrics.forUri(getApplication(), effectiveLocalUri)?.let { embedded ->
                     _lyrics.value = embedded
                     // No source to name: what the file records is the lyrics,
                     // not which of the eight services they came from months ago.
@@ -454,20 +497,63 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     embeddedPlain = embedded
                 }
             }
+            val embeddedIsrc = if (effectiveInitialIsrc.isNullOrBlank() && effectiveLocalUri != null) {
+                EmbeddedLyrics.isrcForUri(getApplication(), effectiveLocalUri)
+            } else {
+                null
+            }
+            if (!embeddedIsrc.isNullOrBlank()) {
+                currentLyricsRequest?.takeIf { it.videoId == videoId && it.isrc.isNullOrBlank() }?.let {
+                    currentLyricsRequest = it.copy(isrc = embeddedIsrc)
+                }
+            }
             if (durationMs <= 0L) {
                 // Duration arrives a beat after the track does; wait for it.
                 lyricsFor = null
                 return@launch
             }
-            val found = LyricsRepository.lyrics(
-                videoId, title, artist, durationMs, album, sources,
-                AppSettings.lyricsSourceOrder.value, AppSettings.prioritizeSyllableSync.value,
+            val queryAlbum = currentLyricsRequest?.takeIf { it.videoId == videoId }?.album ?: effectiveAlbum
+            val queryIsrc = currentLyricsRequest?.takeIf { it.videoId == videoId }?.isrc ?: embeddedIsrc
+            var found = LyricsRepository.lyrics(
+                videoId = videoId,
+                title = title,
+                artist = artist,
+                durationMs = durationMs,
+                album = queryAlbum,
+                sources = sources,
+                order = AppSettings.lyricsSourceOrder.value,
+                prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                isrc = queryIsrc,
                 onSourceStarted = { source -> providerStarted(generation, source) },
                 onSourceResult = { source, result ->
                     providerFinished(generation, source, result)
                 },
                 onSourceCancelled = { source -> providerCancelled(generation, source) },
             )
+            if (found?.lines?.let(EmbeddedLyrics::isSynced) != true) {
+                val refreshed = currentLyricsRequest?.takeIf { it.videoId == videoId }
+                val gainedAlbum = !refreshed?.album.isNullOrBlank() && refreshed?.album != queryAlbum
+                val gainedIsrc = !refreshed?.isrc.isNullOrBlank() && refreshed?.isrc != queryIsrc
+                if (refreshed != null && (gainedAlbum || gainedIsrc)) {
+                    val retry = LyricsRepository.lyrics(
+                        videoId = videoId,
+                        title = title,
+                        artist = artist,
+                        durationMs = refreshed.durationMs.takeIf { it > 0L } ?: durationMs,
+                        album = refreshed.album,
+                        sources = sources,
+                        order = AppSettings.lyricsSourceOrder.value,
+                        prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                        isrc = refreshed.isrc,
+                        onSourceStarted = { source -> providerStarted(generation, source) },
+                        onSourceResult = { source, result ->
+                            providerFinished(generation, source, result)
+                        },
+                        onSourceCancelled = { source -> providerCancelled(generation, source) },
+                    )
+                    if (retry != null) found = retry
+                }
+            }
             val picked = selectedLyricsSource?.let(lyricsProviderResults::get)
             // The file's own words beat a stranger's untimed copy; only timing,
             // or a provider the listener picked by hand, displaces them.
@@ -486,24 +572,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Selects a provider from the player drawer. Completed hits are applied
-     * from memory; misses are inert; only an untouched provider goes online.
+     * from memory; untouched or previously missed providers trigger a fresh
+     * lookup with the latest album and ISRC metadata.
      */
     fun selectLyricsProvider(source: LyricsSource) {
         val request = currentLyricsRequest ?: return
-        when (_lyricsProviderStates.value[source]) {
-            LyricsProviderState.FOUND -> {
+        when (lyricsSelectionAction(_lyricsProviderStates.value[source])) {
+            LyricsSelectionAction.APPLY_CACHED -> {
                 selectedLyricsSource = source
                 lyricsProviderResults[source]?.let(::showLyricsResult)
             }
-            LyricsProviderState.FETCHING -> {
+            LyricsSelectionAction.AWAIT_IN_FLIGHT -> {
                 // Apply it as soon as the already-running automatic attempt completes.
                 selectedLyricsSource = source
             }
-            LyricsProviderState.NOT_FETCHED, null -> {
+            LyricsSelectionAction.FETCH_NOW -> {
                 selectedLyricsSource = source
                 fetchLyricsProvider(request, lyricsGeneration, source)
             }
-            LyricsProviderState.NOT_FOUND -> Unit
         }
     }
 
@@ -514,15 +600,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         if (manualLyricsJobs[source]?.isActive == true) return
         manualLyricsJobs[source] = viewModelScope.launch {
+            val latest = currentLyricsRequest?.takeIf { it.videoId == request.videoId } ?: request
+            val effectiveIsrc = latest.isrc?.takeIf { it.isNotBlank() }
+                ?: latest.localUri?.let { EmbeddedLyrics.isrcForUri(getApplication(), it) }
             LyricsRepository.lyrics(
-                videoId = request.videoId,
-                title = request.title,
-                artist = request.artist,
-                durationMs = request.durationMs,
-                album = request.album,
+                videoId = latest.videoId,
+                title = latest.title,
+                artist = latest.artist,
+                durationMs = latest.durationMs,
+                album = latest.album,
                 sources = setOf(source),
                 order = listOf(source),
                 prioritizeSyllableSync = false,
+                isrc = effectiveIsrc,
                 onSourceStarted = { provider -> providerStarted(generation, provider) },
                 onSourceResult = { provider, result ->
                     providerFinished(generation, provider, result)
@@ -3823,3 +3913,33 @@ internal fun lyricsLookupKey(
     order: List<LyricsSource>,
     prioritizeSyllableSync: Boolean,
 ): List<Any> = listOf(videoId, sources, order, prioritizeSyllableSync)
+
+internal enum class LyricsSelectionAction {
+    APPLY_CACHED,
+    AWAIT_IN_FLIGHT,
+    FETCH_NOW,
+}
+
+internal fun lyricsSelectionAction(
+    state: LyricsProviderState?,
+): LyricsSelectionAction = when (state) {
+    LyricsProviderState.FOUND -> LyricsSelectionAction.APPLY_CACHED
+    LyricsProviderState.FETCHING -> LyricsSelectionAction.AWAIT_IN_FLIGHT
+    LyricsProviderState.NOT_FETCHED,
+    LyricsProviderState.NOT_FOUND,
+    null,
+    -> LyricsSelectionAction.FETCH_NOW
+}
+
+internal fun shouldRetryLyricsWithBackfilledMetadata(
+    previousAlbum: String?,
+    mergedAlbum: String?,
+    previousIsrc: String?,
+    mergedIsrc: String?,
+    hasSyncedLyrics: Boolean,
+    lyricsChecked: Boolean,
+): Boolean {
+    val gainedAlbum = mergedAlbum != previousAlbum && !mergedAlbum.isNullOrBlank()
+    val gainedIsrc = mergedIsrc != previousIsrc && !mergedIsrc.isNullOrBlank()
+    return (gainedAlbum || gainedIsrc) && !hasSyncedLyrics && lyricsChecked
+}

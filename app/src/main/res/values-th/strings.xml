@@ -210,6 +210,10 @@
     <string name="crossfade">ครอสเฟด</string>
     <string name="crossfade_subtitle">ผสานเพลงหนึ่งเข้ากับเพลงถัดไป</string>
     <string name="automix">Automix [เบต้า]</string>
+    <string name="automix_art_transition">การเปลี่ยนภาพปก</string>
+    <string name="automix_art_transition_subtitle">ผสานภาพปกอัลบั้มระหว่างเพลงอย่างนุ่มนวลขณะใช้ AutoMix</string>
+    <string name="automix_mini_art_transition">การเปลี่ยนภาพปกบนมินิเพลเยอร์</string>
+    <string name="automix_mini_art_transition_subtitle">แสดงเอฟเฟกต์เปลี่ยนภาพปกในมินิเพลเยอร์ขณะใช้ AutoMix</string>
     <string name="automix_overview">ภาพรวม Automix</string>
     <string name="automix_performance">ประสิทธิภาพ Automix</string>
     <string name="automix_performance_subtitle">กำหนดปริมาณ CPU ที่ใช้วิเคราะห์ในพื้นหลัง</string>
@@ -225,6 +229,8 @@
     <string name="skip_silence_float_subtitle">ใช้ไม่ได้กับเอาต์พุตแบบ float 32 บิต</string>
     <string name="equalizer">อีควอไลเซอร์</string>
     <string name="equalizer_subtitle">แผงควบคุมของระบบในอุปกรณ์ของคุณ</string>
+    <string name="show_best_part">ปุ่มท่อนฮิต</string>
+    <string name="show_best_part_subtitle">ปุ่มบนภาพปกสำหรับข้ามไปยังท่อนของเพลงที่ผู้คนฟังซ้ำมากที่สุด</string>
     <string name="show_nerd_stats">แสดงสถิติเชิงลึก</string>
     <string name="show_nerd_stats_subtitle">โคเดก อัตราบิต และอัตราสุ่มตัวอย่างบนหน้าเครื่องเล่น</string>
     <string name="theme">ธีม</string>
@@ -1542,4 +1548,59 @@
     <string name="drive_backup_row_subtitle">สำรองและซิงค์ Replay ในทุกอุปกรณ์ของคุณ</string>
     <string name="drive_over_cellular">ซิงค์ผ่านอินเทอร์เน็ตมือถือ</string>
     <string name="drive_over_cellular_subtitle">เมื่อปิด การซิงค์อัตโนมัติจะรอ Wi-Fi</string>
+    <!-- Replay year story -->
+    <string name="replay_year_open">เปิด Replay %1$s ของคุณ</string>
+    <string name="replay_year_building">กำลังสรุปปีของคุณ…</string>
+    <string name="replay_year_opener_start">ปี</string>
+    <string name="replay_year_opener_end">ของคุณใน BitChord</string>
+    <string name="replay_year_opener_detail">มาย้อนดูเพลงที่คุณเปิดฟังกัน</string>
+    <string name="replay_year_minutes_start">ปีนี้คุณฟังเพลงไปทั้งหมด</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">นาที</item>
+    </plurals>
+    <string name="replay_year_minutes_days_start">คิดเป็นเวลาฟังเพลงรวม</string>
+    <string name="replay_year_minutes_days_value">%1$s วัน</string>
+    <string name="replay_year_minutes_hours_value">%1$s ชั่วโมง</string>
+    <string name="replay_year_minutes_days_end">เต็มๆ</string>
+    <string name="replay_year_busiest_start">วันที่คุณฟังเพลงมากที่สุดคือ</string>
+    <string name="replay_year_busiest_minutes">ฟังเพลง %1$s นาทีในวันเดียว</string>
+    <string name="replay_year_busiest_song">ส่วนใหญ่คือ %1$s</string>
+    <string name="replay_year_clock_start">ช่วงเวลาที่คุณคึกคักที่สุดคือราว</string>
+    <string name="replay_year_night_owl">สายดึก</string>
+    <string name="replay_year_night_owl_detail">เวลาฟังเพลงส่วนใหญ่ของคุณเกิดขึ้นหลังสี่ทุ่ม</string>
+    <string name="replay_year_early_bird">สายเช้าตรู่</string>
+    <string name="replay_year_early_bird_detail">วันของคุณเริ่มต้นด้วยเสียงเพลงตั้งแต่ก่อนสิบโมงเช้า</string>
+    <string name="replay_year_golden_hour">โกลเด้นอาวร์</string>
+    <string name="replay_year_golden_hour_detail">ช่วงเย็นคือเวลาที่เสียงเพลงของคุณเริ่มบรรเลง</string>
+    <string name="replay_year_daytime">เพื่อนร่วมวัน</string>
+    <string name="replay_year_daytime_detail">คุณเปิดเพลงคลอไปตลอดทั้งวัน</string>
+    <string name="replay_year_all_day">ฟังได้ทั้งวันทั้งคืน</string>
+    <string name="replay_year_all_day_detail">ไม่ว่าเช้า เที่ยง หรือดึก ก็มีเสียงเพลงเปิดอยู่เสมอ</string>
+    <string name="replay_year_genres_start">ซาวด์ของคุณในปีนี้</string>
+    <string name="replay_year_artist_start">ศิลปินอันดับหนึ่งของคุณในปีนี้คือ…</string>
+    <string name="replay_year_minutes_together">%1$s นาทีที่ได้อยู่ด้วยกัน</string>
+    <string name="replay_year_top_artists">ศิลปินยอดนิยมของคุณ</string>
+    <string name="replay_year_song_start">และเพลงแห่งปีของคุณ…</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">เล่นไป %1$s ครั้ง</item>
+    </plurals>
+    <string name="replay_year_top_songs">เพลงยอดนิยมอื่นๆ ของคุณ</string>
+    <string name="replay_year_albums">อัลบั้มที่คุณคลุกคลีอยู่ด้วย</string>
+    <string name="replay_year_months">ปีของคุณ ไล่เรียงทีละเดือน</string>
+    <string name="replay_year_discovery_start">ปีนี้คุณได้ออกสำรวจ</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">เพลง</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">ศิลปิน</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">อัลบั้ม</item>
+    </plurals>
+    <string name="replay_year_summary_title">%1$s ของคุณ</string>
+    <string name="replay_year_summary_artists">ศิลปินยอดนิยม</string>
+    <string name="replay_year_summary_songs">เพลงยอดนิยม</string>
+    <string name="replay_year_summary_minutes">นาทีที่ฟัง</string>
+    <string name="replay_year_mute">ปิดเสียงสตอรี่</string>
+    <string name="replay_year_unmute">เปิดเสียงสตอรี่</string>
 </resources>

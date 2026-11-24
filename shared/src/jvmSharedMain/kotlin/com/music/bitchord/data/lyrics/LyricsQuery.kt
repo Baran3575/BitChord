@@ -1,5 +1,17 @@
 package com.music.bitchord.data.lyrics
 
+import com.music.bitchord.data.sources.TrackMatcher
+
+/** Maximum number of staged queries any single provider may attempt per lookup. */
+const val MAX_LYRICS_QUERY_STAGES = 3
+
+/** One query attempt in a provider's staged fallback sequence. */
+data class LyricsQueryStage(
+    val title: String,
+    val artist: String,
+    val album: String? = null,
+)
+
 /**
  * A YouTube title, as a lyrics database would have indexed it.
  *
@@ -41,7 +53,61 @@ fun String.forLyricsSearch(): String {
 fun String.artistForLyricsSearch(): String =
     removeSuffix(" - Topic").trim().ifBlank { trim() }
 
+/**
+ * Derives the lead artist for fallback queries by trimming channel suffixes via
+ * [artistForLyricsSearch], splitting on collaboration separators, and validating
+ * against [TrackMatcher.primaryArtist] so YouTube type labels ("Música", "Video")
+ * are never treated as artist names while display casing is preserved.
+ */
+fun String.leadArtistForLyricsSearch(): String {
+    val cleaned = artistForLyricsSearch()
+    if (cleaned.isBlank()) return ""
+    return cleaned.split(LEAD_ARTIST_SEPARATORS)
+        .asSequence()
+        .map { it.artistForLyricsSearch() }
+        .firstOrNull { it.isNotEmpty() && TrackMatcher.primaryArtist(it).isNotEmpty() }
+        .orEmpty()
+}
+
+/**
+ * Ordered query stages for providers whose strict matching can 404 when album
+ * metadata disagrees (singles vs albums, untagged folder names) or when guest
+ * artists are appended to the byline:
+ *  1. `(cleanTitle, cleanArtist, cleanAlbum)` when an album is present
+ *  2. `(cleanTitle, cleanArtist, null)` without album
+ *  3. `(cleanTitle, leadArtist, null)` with only the primary artist
+ *
+ * Recording version words (`Remix`, `Live`, `Acoustic`, etc.) remain on
+ * `cleanTitle` across every stage, and total stages are capped at
+ * [MAX_LYRICS_QUERY_STAGES].
+ */
+fun lyricsQueryStages(
+    title: String,
+    artist: String,
+    album: String? = null,
+): List<LyricsQueryStage> {
+    val cleanTitle = title.forLyricsSearch()
+    val cleanArtist = artist.artistForLyricsSearch()
+    val cleanAlbum = album?.trim()?.takeIf { it.isNotEmpty() }
+    val leadArtist = artist.leadArtistForLyricsSearch()
+
+    return buildList {
+        if (cleanAlbum != null) {
+            add(LyricsQueryStage(cleanTitle, cleanArtist, cleanAlbum))
+        }
+        add(LyricsQueryStage(cleanTitle, cleanArtist, null))
+        if (leadArtist.isNotEmpty() && !leadArtist.equals(cleanArtist, ignoreCase = true)) {
+            add(LyricsQueryStage(cleanTitle, leadArtist, null))
+        }
+    }.distinct().take(MAX_LYRICS_QUERY_STAGES)
+}
+
 private val WHITESPACE = Regex("""\s+""")
+
+private val LEAD_ARTIST_SEPARATORS = Regex(
+    """\s*(?:[,&/;·|、，×]|\band\b|\bx\b|\bvs\.?\b|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b)\s*""",
+    RegexOption.IGNORE_CASE,
+)
 
 private val CREDITS = listOf(
     // Bracketed credits: (feat. X), [ft. X], (with X).

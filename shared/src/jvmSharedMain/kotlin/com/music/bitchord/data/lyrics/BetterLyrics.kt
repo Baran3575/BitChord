@@ -26,7 +26,8 @@ object BetterLyrics {
         artist: String,
         durationMs: Long,
         album: String? = null,
-    ): List<LyricLine>? = fetch(BASE, title, artist, durationMs, album)
+        get: suspend (String) -> String? = { lyricsGet(it) },
+    ): List<LyricLine>? = fetch(BASE, title, artist, durationMs, album, get)
 
     /** QQ Music's karaoke timings through BetterLyrics' Portato endpoint. */
     suspend fun portato(
@@ -34,7 +35,8 @@ object BetterLyrics {
         artist: String,
         durationMs: Long,
         album: String? = null,
-    ): List<LyricLine>? = fetch(PORTATO, title, artist, durationMs, album)
+        get: suspend (String) -> String? = { lyricsGet(it) },
+    ): List<LyricLine>? = fetch(PORTATO, title, artist, durationMs, album, get)
 
     private suspend fun fetch(
         endpoint: String,
@@ -42,18 +44,23 @@ object BetterLyrics {
         artist: String,
         durationMs: Long,
         album: String?,
+        get: suspend (String) -> String?,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val url = endpoint.toHttpUrl().newBuilder()
-            .addQueryParameter("s", title)
-            .addQueryParameter("a", artist)
-            .apply {
-                val seconds = durationMs / 1000
-                if (seconds > 0) addQueryParameter("d", seconds.toString())
-                if (!album.isNullOrBlank()) addQueryParameter("al", album)
-            }
-            .build()
+        val seconds = durationMs / 1000
+        for (stage in lyricsQueryStages(title, artist, album)) {
+            val url = endpoint.toHttpUrl().newBuilder()
+                .addQueryParameter("s", stage.title)
+                .addQueryParameter("a", stage.artist)
+                .apply {
+                    if (seconds > 0) addQueryParameter("d", seconds.toString())
+                    if (!stage.album.isNullOrBlank()) addQueryParameter("al", stage.album)
+                }
+                .build()
 
-        val body = lyricsGet(url.toString()) ?: return@withContext null
-        ProviderLyrics.parse(body)
+            val body = get(url.toString()) ?: continue
+            val lines = ProviderLyrics.parse(body)?.takeIf { it.isNotEmpty() }
+            if (lines != null) return@withContext lines
+        }
+        null
     }
 }

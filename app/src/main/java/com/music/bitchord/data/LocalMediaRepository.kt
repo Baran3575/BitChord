@@ -114,7 +114,7 @@ object LocalMediaRepository {
                         val name = cursor.getString(nameCol) ?: continue
                         val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString()
                         val tags = ScannedTags(
-                            albumName = cursor.getString(albumCol).cleanTag(),
+                            albumName = cleanAlbumTag(cursor.getString(albumCol)),
                             artworkUrl = trackArtworkUrl(contentUri),
                             dateAddedSeconds = cursor.getLong(dateAddedCol),
                             dateModifiedSeconds = cursor.getLong(dateModifiedCol),
@@ -180,6 +180,42 @@ object LocalMediaRepository {
     /** What MediaStore writes into a column it has nothing for. */
     private fun String?.cleanTag(): String? =
         takeUnless { it.isNullOrBlank() || it == "<unknown>" }
+
+    /**
+     * MediaStore fills [MediaStore.Audio.Media.ALBUM] with the parent directory
+     * name ("Download", "Music", "BitChord", etc.) whenever a file has no
+     * embedded album tag. Strip those folder placeholders so lyric providers do
+     * not reject untagged local files on bogus album names.
+     */
+    internal fun cleanAlbumTag(raw: String?): String? {
+        val cleaned = raw.cleanTag()?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return cleaned.takeUnless { it.lowercase(Locale.ROOT) in FOLDER_ALBUM_NAMES }
+    }
+
+    private val FOLDER_ALBUM_NAMES = setOf(
+        "download",
+        "downloads",
+        "music",
+        "my music",
+        DownloadStore.FOLDER.lowercase(Locale.ROOT),
+        "audio",
+        "media",
+        "sdcard",
+        "0",
+        "shared",
+        "internal storage",
+        "bluetooth",
+        "documents",
+        "telegram",
+        "telegram audio",
+        "telegram documents",
+        "whatsapp audio",
+        "podcasts",
+        "ringtones",
+        "notifications",
+        "alarms",
+        "recordings",
+    )
 
     /**
      * A way for a build to look beyond MediaStore — the Android TV app reads USB
@@ -320,7 +356,7 @@ object LocalMediaRepository {
                 artist = cursor.getString(artist).cleanTag() ?: "Unknown Artist",
                 thumbnailUrl = trackArtworkUrl(contentUri),
                 durationText = durationMs.takeIf { it > 0 }?.let { formatDuration(it) },
-                albumName = cursor.getString(album).cleanTag(),
+                albumName = cleanAlbumTag(cursor.getString(album)),
                 localUri = contentUri,
                 localPath = cursor.getString(data),
                 localDateAddedSeconds = cursor.getLong(dateAdded),
@@ -539,7 +575,7 @@ object LocalMediaRepository {
 
                 if (!metaTitle.isNullOrBlank()) title = metaTitle
                 if (!metaArtist.isNullOrBlank()) artist = metaArtist
-                albumName = metaAlbum.cleanTag()
+                albumName = cleanAlbumTag(metaAlbum)
                 if (metaDur != null && metaDur > 0) durationText = formatDuration(metaDur)
                 trackNumber = trackNumberFromTag(metaTrack)
                 // The cover is in the file; nothing else will say so for a file

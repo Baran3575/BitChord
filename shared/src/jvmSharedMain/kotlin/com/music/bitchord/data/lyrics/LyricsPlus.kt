@@ -14,6 +14,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -23,23 +24,27 @@ import java.util.concurrent.atomic.AtomicReference
  * splits, not just word boundaries.
  *
  * The catch is hosting: it runs on volunteer mirrors, and at any given moment
- * most of them are rate-limited, out of Vercel credit or simply gone. The
- * extension's answer, copied here, is to ask all of them at once and take the
- * first real answer. The winner is remembered so the next track goes straight
- * to a host that was up a minute ago instead of paying for the race again.
+ * some of them may be rate-limited or offline. Active mirrors are raced and the
+ * winner is remembered, while mirrors that fail with connection errors,
+ * disabled-deployment statuses, or non-JSON errors are temporarily cooled down
+ * so dead hosts are skipped on subsequent tracks.
  */
 object LyricsPlus {
 
-    private val MIRRORS = listOf(
+    internal val MIRRORS = listOf(
         "https://lyricsplus.prjktla.my.id",
-        "https://lyricsplus.atomix.one",
         "https://lyricsplus.binimum.org",
-        "https://lyricsplus.prjktla.workers.dev",
-        "https://lyricsplus-seven.vercel.app",
-        "https://lyrics-plus-backend.vercel.app",
     )
 
+    internal const val DEAD_HOST_COOLDOWN_MS = 10L * 60 * 1000
+
     private val lastGood = AtomicReference<String?>(null)
+    private val deadUntilMs = ConcurrentHashMap<String, Long>()
+
+    internal fun resetForTests() {
+        lastGood.set(null)
+        deadUntilMs.clear()
+    }
 
     suspend fun lyrics(
         title: String,
@@ -47,13 +52,54 @@ object LyricsPlus {
         durationMs: Long,
         album: String? = null,
         isrc: String? = null,
+        isrcProvider: (() -> String?)? = null,
+    ): List<LyricLine>? = lyricsInternal(
+        title = title,
+        artist = artist,
+        durationMs = durationMs,
+        album = album,
+        isrc = isrc,
+        isrcProvider = isrcProvider,
+        mirrors = MIRRORS,
+        request = { lyricsRequest(it) },
+        nowMs = System::currentTimeMillis,
+    )
+
+    internal suspend fun lyricsInternal(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+        isrc: String? = null,
+        isrcProvider: (() -> String?)? = null,
+        mirrors: List<String> = MIRRORS,
+        request: suspend (String) -> LyricsHttpResponse? = { lyricsRequest(it) },
+        nowMs: () -> Long = System::currentTimeMillis,
     ): List<LyricLine>? = coroutineScope {
-        val hosts = lastGood.get()
-            ?.let { listOf(it) + MIRRORS.filterNot { mirror -> mirror == it } }
-            ?: MIRRORS
+        if (mirrors.isEmpty()) return@coroutineScope null
+        val now = nowMs()
+        val preferred = lastGood.get()?.takeIf { it in mirrors }
+        val ordered = if (preferred != null) {
+            listOf(preferred) + mirrors.filterNot { it == preferred }
+        } else {
+            mirrors
+        }
+        val healthy = ordered.filter { host ->
+            val until = deadUntilMs[host] ?: return@filter true
+            if (until <= now) {
+                deadUntilMs.remove(host, until)
+                true
+            } else {
+                false
+            }
+        }
+        // Only fall back to probing cooled-down hosts if every mirror was marked dead.
+        val hosts = healthy.ifEmpty { ordered }
 
         val pending = hosts.map { host ->
-            host to async(Dispatchers.IO) { fetch(host, title, artist, durationMs, album, isrc) }
+            host to async(Dispatchers.IO) {
+                fetch(host, title, artist, durationMs, album, isrc, isrcProvider, request, nowMs)
+            }
         }.toMutableList()
 
         // Take the first mirror to answer with something usable rather than
@@ -76,6 +122,17 @@ object LyricsPlus {
         }
     }
 
+    private fun markDead(host: String, nowMs: () -> Long) {
+        deadUntilMs[host] = nowMs() + DEAD_HOST_COOLDOWN_MS
+        lastGood.compareAndSet(host, null)
+    }
+
+    private fun isJsonTrackMiss(response: LyricsHttpResponse): Boolean {
+        if (response.code != 404) return false
+        if (response.contentType?.contains("json", ignoreCase = true) == true) return true
+        return response.body?.trimStart()?.startsWith("{") == true
+    }
+
     private suspend fun fetch(
         host: String,
         title: String,
@@ -83,25 +140,49 @@ object LyricsPlus {
         durationMs: Long,
         album: String?,
         isrc: String?,
+        isrcProvider: (() -> String?)?,
+        request: suspend (String) -> LyricsHttpResponse?,
+        nowMs: () -> Long,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val url = "$host/v2/lyrics/get".toHttpUrl().newBuilder()
-            .addQueryParameter("title", title)
-            .addQueryParameter("artist", artist)
-            .apply {
-                val seconds = durationMs / 1000
-                if (seconds > 0) addQueryParameter("duration", seconds.toString())
-                if (!album.isNullOrBlank()) addQueryParameter("album", album)
-                // Sent alongside the name rather than instead of it: unlike
-                // [BiniLyrics] this backend aggregates several catalogues, and
-                // the ones with no ISRC index still need something to match on.
-                if (!isrc.isNullOrBlank()) addQueryParameter("isrc", isrc)
-            }
-            .build()
+        val seconds = durationMs / 1000
+        for (stage in lyricsQueryStages(title, artist, album)) {
+            val effectiveIsrc = (isrc ?: isrcProvider?.invoke())?.trim()?.takeIf { it.isNotEmpty() }
+            val url = "$host/v2/lyrics/get".toHttpUrl().newBuilder()
+                .addQueryParameter("title", stage.title)
+                .addQueryParameter("artist", stage.artist)
+                .apply {
+                    if (seconds > 0) addQueryParameter("duration", seconds.toString())
+                    if (!stage.album.isNullOrBlank()) addQueryParameter("album", stage.album)
+                    // Sent alongside the name rather than instead of it: unlike
+                    // [BiniLyrics] this backend aggregates several catalogues, and
+                    // the ones with no ISRC index still need something to match on.
+                    if (effectiveIsrc != null) addQueryParameter("isrc", effectiveIsrc)
+                }
+                .build()
 
-        val body = lyricsGet(url.toString()) ?: return@withContext null
-        val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
-            ?: return@withContext null
-        parse(response).takeIf { it.isNotEmpty() }
+            val http = request(url.toString())
+            if (http == null) {
+                markDead(host, nowMs)
+                return@withContext null
+            }
+            if (http.isSuccessful) {
+                deadUntilMs.remove(host)
+                val body = http.body ?: continue
+                val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
+                    ?: continue
+                val parsed = parse(response).takeIf { it.isNotEmpty() }
+                if (parsed != null) return@withContext parsed
+                continue
+            }
+            if (isJsonTrackMiss(http)) {
+                deadUntilMs.remove(host)
+                continue
+            }
+            // Non-JSON 404 (disabled worker), 402 (Vercel quota), 403, or 5xx: dead mirror.
+            markDead(host, nowMs)
+            return@withContext null
+        }
+        null
     }
 
     fun parse(response: Response): List<LyricLine> {

@@ -297,6 +297,7 @@ class AddonSource(
                             ModuleSource.qualityTier("${track.audioQuality} ${track.format}")
                         },
                         sourceHiRes = !track.isDolbyAtmos && track.isHiRes,
+                        isrc = track.isrc?.trim()?.ifBlank { null },
                     )
                 }
                 .toList()

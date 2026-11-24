@@ -149,6 +149,8 @@ data class Song(
      * non-history rows (e.g. search results, library).
      */
     val feedbackToken: String? = null,
+    /** Recording ISRC when provided by tags, an addon catalogue, or a backfill lookup. */
+    val isrc: String? = null,
 ) {
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */
     val fromAutoplay: Boolean get() = queueTier == QueueTier.AUTOPLAY
@@ -180,6 +182,7 @@ data class Song(
         playbackSource: String? = null,
         playbackSourceType: PlaybackSourceType? = null,
         playbackSourceId: String? = null,
+        isrc: String? = null,
     ) : this(
         videoId = videoId,
         title = title,
@@ -207,6 +210,7 @@ data class Song(
         playbackSource = playbackSource,
         playbackSourceType = playbackSourceType,
         playbackSourceId = playbackSourceId,
+        isrc = isrc,
     )
 }
 

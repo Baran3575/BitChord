@@ -77,6 +77,20 @@ object EmbeddedLyrics {
         }
 
     /**
+     * The ISRC embedded in [uriString], normalized to 12 uppercase characters,
+     * or null when absent or unrecognised.
+     */
+    suspend fun isrcForUri(context: Context, uriString: String): String? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val uri = Uri.parse(uriString)
+                open(context, uri)?.use { isrcFromBytes(it.readAtMost(MAX_TAG_BYTES)) }
+            }
+                .onFailure { Log.d(TAG, "no embedded ISRC in $uriString: ${it.message}") }
+                .getOrNull()
+        }
+
+    /**
      * [raw] as lines: LRC where it is stamped, else the words as plain,
      * unsynced lines — which is how most taggers store lyrics, and what an
      * MP3's `USLT` usually holds (#1020). Null when there is nothing to show.
@@ -138,13 +152,28 @@ object EmbeddedLyrics {
      */
     internal fun fromBytes(head: ByteArray): String? {
         val found = when {
-            head.startsWith(FLAC_MAGIC) -> flac(head)
-            head.startsWith(MATROSKA_MAGIC) -> matroska(head)
+            head.startsWith(FLAC_MAGIC) -> flac(head, WORD_LYRICS_FIELD, "LYRICS")
+            head.startsWith(MATROSKA_MAGIC) -> matroska(head, listOf(WORD_LYRICS_FIELD, "LYRICS"))
             head.isMp4() -> mp4(head)
             head.startsWith(ID3_MAGIC) -> id3(head)
             else -> null
         }
         return found?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * The recording ISRC in [head], whichever of the four containers it is,
+     * normalized via [LrcRed.normalizeIsrc].
+     */
+    internal fun isrcFromBytes(head: ByteArray): String? {
+        val found = when {
+            head.startsWith(FLAC_MAGIC) -> flac(head, "ISRC", null)
+            head.startsWith(MATROSKA_MAGIC) -> matroska(head, listOf("ISRC"))
+            head.isMp4() -> mp4Isrc(head)
+            head.startsWith(ID3_MAGIC) -> id3Isrc(head)
+            else -> null
+        }
+        return LrcRed.normalizeIsrc(found)
     }
 
     private fun open(context: Context, uri: Uri): InputStream? =
@@ -172,6 +201,25 @@ object EmbeddedLyrics {
         val end = moov.last + 1
         return ilstText(bytes, moov.first, end, freeform = true)
             ?: ilstText(bytes, moov.first, end, freeform = false)
+    }
+
+    private fun mp4Isrc(bytes: ByteArray): String? {
+        val moov = topLevelBox(bytes, "moov") ?: return null
+        val end = moov.last + 1
+        for (field in listOf("ISRC", "isrc")) {
+            val nameBox = byteArrayOf(0, 0, 0, (12 + field.length).toByte()) +
+                NAME_ATOM + byteArrayOf(0, 0, 0, 0) + field.toByteArray(Charsets.UTF_8)
+            var at = moov.first
+            while (true) {
+                val found = bytes.indexOf(nameBox, at, end) ?: break
+                val data = bytes.indexOf(DATA_ATOM, found + nameBox.size, end) ?: break
+                dataText(bytes, data, end)?.takeIf { it.isNotBlank() }?.let { return it }
+                at = found + nameBox.size
+            }
+        }
+        val found = bytes.indexOf(ISR_ATOM, moov.first, end) ?: return null
+        val data = bytes.indexOf(DATA_ATOM, found + ISR_ATOM.size, end) ?: return null
+        return dataText(bytes, data, end)
     }
 
     /**
@@ -249,7 +297,7 @@ object EmbeddedLyrics {
      * Every length in the block is **little-endian** — it reuses Ogg Vorbis'
      * layout, which is the one part of FLAC that isn't big-endian.
      */
-    private fun flac(bytes: ByteArray): String? {
+    private fun flac(bytes: ByteArray, preferredField: String, fallbackField: String?): String? {
         var pos = FLAC_MAGIC.size
         while (pos + 4 <= bytes.size) {
             val flags = bytes[pos].toInt() and 0xFF
@@ -259,7 +307,7 @@ object EmbeddedLyrics {
             val start = pos + 4
             if (start + length > bytes.size) return null
             if (flags and 0x7F == FLAC_VORBIS_COMMENT) {
-                return vorbisComment(bytes, start, start + length)
+                return vorbisComment(bytes, start, start + length, preferredField, fallbackField)
             }
             if (flags and 0x80 != 0) return null
             pos = start + length
@@ -267,7 +315,13 @@ object EmbeddedLyrics {
         return null
     }
 
-    private fun vorbisComment(bytes: ByteArray, start: Int, end: Int): String? {
+    private fun vorbisComment(
+        bytes: ByteArray,
+        start: Int,
+        end: Int,
+        preferredField: String,
+        fallbackField: String?,
+    ): String? {
         var pos = start
         fun u32(): Int? {
             if (pos + 4 > end) return null
@@ -279,26 +333,28 @@ object EmbeddedLyrics {
         val vendor = u32() ?: return null
         pos += vendor
         val count = u32() ?: return null
-        var plain: String? = null
+        var fallback: String? = null
         repeat(count.coerceAtMost(4_096)) {
-            val length = u32() ?: return plain
-            if (length < 0 || pos + length > end) return plain
+            val length = u32() ?: return fallback
+            if (length < 0 || pos + length > end) return fallback
             val entry = String(bytes, pos, length, Charsets.UTF_8)
             pos += length
             val name = entry.substringBefore('=').uppercase()
             val value = entry.substringAfter('=', "")
             // This app's own field wins outright; the standard one is held in
             // case it turns out to be the only one there.
-            if (name == WORD_LYRICS_FIELD && value.isNotBlank()) return value
-            if (name == "LYRICS" && plain == null && value.isNotBlank()) plain = value
+            if (name == preferredField && value.isNotBlank()) return value
+            if (fallbackField != null && name == fallbackField && fallback == null && value.isNotBlank()) {
+                fallback = value
+            }
         }
-        return plain
+        return fallback
     }
 
     // ---- Matroska / WebM ----------------------------------------------------
 
     /**
-     * The `LYRICS` SimpleTag's string.
+     * A named SimpleTag's string (`LYRICS`, `ISRC`, etc.).
      *
      * Scanned for rather than walked down to: the tags a download writes are
      * appended after everything else (see `WebmTagger`), so reaching them
@@ -307,9 +363,10 @@ object EmbeddedLyrics {
      * `TagName` element and the value read out of the `TagString` that follows,
      * so this is looking at tag structure rather than guessing at loose bytes.
      */
-    private fun matroska(bytes: ByteArray): String? {
-        var plain: String? = null
-        for (name in listOf(WORD_LYRICS_FIELD, "LYRICS")) {
+    private fun matroska(bytes: ByteArray, names: List<String>): String? {
+        val preferred = names.firstOrNull() ?: return null
+        var fallback: String? = null
+        for (name in names) {
             val needle = name.toByteArray(Charsets.US_ASCII)
             var from = 0
             while (true) {
@@ -325,11 +382,11 @@ object EmbeddedLyrics {
                 if (size.value <= 0 || valueAt + size.value > bytes.size) continue
                 val value = String(bytes, valueAt, size.value.toInt(), Charsets.UTF_8)
                 if (value.isBlank()) continue
-                if (name == WORD_LYRICS_FIELD) return value
-                if (plain == null) plain = value
+                if (name == preferred) return value
+                if (fallback == null) fallback = value
             }
         }
-        return plain
+        return fallback
     }
 
     private class Vint(val value: Long, val width: Int)
@@ -411,6 +468,85 @@ object EmbeddedLyrics {
         return null
     }
 
+    private fun id3Isrc(head: ByteArray): String? {
+        if (head.size < 10) return null
+        val major = head[3].toInt()
+        if (major !in 2..4) return null
+        val flags = head[5].toInt()
+        val tagEnd = minOf(head.size, 10 + syncsafe(head, 6))
+        val bytes = if (flags and 0x80 != 0 && major < 4) deUnsync(head, 10, tagEnd) else head.copyOfRange(10, tagEnd)
+        var at = 0
+        if (flags and 0x40 != 0 && major >= 3 && bytes.size >= 4) {
+            at += if (major == 4) syncsafe(bytes, 0) else readU32(bytes, 0).toInt() + 4
+        }
+        val idLength = if (major == 2) 3 else 4
+        val headerLength = if (major == 2) 6 else 10
+        val tsrc = if (major == 2) "TRC" else "TSRC"
+        val txxx = if (major == 2) "TXX" else "TXXX"
+        var userIsrc: String? = null
+        while (at in 0..bytes.size - headerLength) {
+            if (bytes[at] == 0.toByte()) break
+            val id = String(bytes, at, idLength, Charsets.ISO_8859_1)
+            val size = when (major) {
+                2 -> ((bytes[at + 3].toInt() and 0xFF) shl 16) or ((bytes[at + 4].toInt() and 0xFF) shl 8) or
+                    (bytes[at + 5].toInt() and 0xFF)
+                4 -> syncsafe(bytes, at + 4)
+                else -> readU32(bytes, at + 4).toInt()
+            }
+            val body = at + headerLength
+            if (size <= 0 || body + size > bytes.size) break
+            if (id == tsrc) {
+                id3TextFrame(bytes, body, body + size)?.let { return it }
+            } else if (id == txxx && userIsrc == null) {
+                userIsrc = id3UserTextFrame(bytes, body, body + size, "ISRC")
+            }
+            at = body + size
+        }
+        return userIsrc
+    }
+
+    private fun id3Charset(encoding: Int) = when (encoding) {
+        0 -> Charsets.ISO_8859_1
+        1 -> Charsets.UTF_16
+        2 -> Charsets.UTF_16BE
+        3 -> Charsets.UTF_8
+        else -> null
+    }
+
+    private fun id3TextFrame(bytes: ByteArray, from: Int, until: Int): String? {
+        if (until - from < 2) return null
+        val charset = id3Charset(bytes[from].toInt()) ?: return null
+        return String(bytes, from + 1, until - (from + 1), charset)
+            .trimEnd('\u0000')
+            .trim()
+            .takeIf { it.isNotEmpty() }
+    }
+
+    private fun id3UserTextFrame(bytes: ByteArray, from: Int, until: Int, wantedDescription: String): String? {
+        if (until - from < 3) return null
+        val charset = id3Charset(bytes[from].toInt()) ?: return null
+        val wide = charset == Charsets.UTF_16 || charset == Charsets.UTF_16BE
+        var at = from + 1
+        var descEnd = -1
+        while (at < until) {
+            if (!wide && bytes[at] == 0.toByte()) {
+                descEnd = at
+                at += 1
+                break
+            }
+            if (wide && at + 1 < until && bytes[at] == 0.toByte() && bytes[at + 1] == 0.toByte()) {
+                descEnd = at
+                at += 2
+                break
+            }
+            at += if (wide) 2 else 1
+        }
+        if (descEnd < 0 || at >= until) return null
+        val description = String(bytes, from + 1, descEnd - (from + 1), charset).trimEnd('\u0000').trim()
+        if (!description.equals(wantedDescription, ignoreCase = true)) return null
+        return String(bytes, at, until - at, charset).trimEnd('\u0000').trim().takeIf { it.isNotEmpty() }
+    }
+
     /** encoding, three-letter language, a terminated description, then the lyrics. */
     private fun usltText(bytes: ByteArray, from: Int, until: Int): String? {
         if (until - from < 5) return null
@@ -489,7 +625,9 @@ object EmbeddedLyrics {
     private val LRC_ID_TAG = Regex("""\[[A-Za-z#]+:[^\]]*]""")
     private val MATROSKA_MAGIC = byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())
     private val DATA_ATOM = "data".toByteArray(Charsets.ISO_8859_1)
+    private val NAME_ATOM = "name".toByteArray(Charsets.ISO_8859_1)
     private val LYR_ATOM = byteArrayOf(0xA9.toByte()) + "lyr".toByteArray(Charsets.ISO_8859_1)
+    private val ISR_ATOM = byteArrayOf(0xA9.toByte()) + "isr".toByteArray(Charsets.ISO_8859_1)
     private val ID_TAGNAME = byteArrayOf(0x45, 0xA3.toByte())
     private val ID_TAGSTRING = byteArrayOf(0x44, 0x87.toByte())
 }

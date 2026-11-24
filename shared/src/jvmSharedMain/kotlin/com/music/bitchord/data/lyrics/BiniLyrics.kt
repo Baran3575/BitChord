@@ -42,11 +42,9 @@ object BiniLyrics {
     /**
      * Which recording this is, without fetching its words.
      *
-     * The search is small — a couple of hundred bytes — and it is the only
-     * request any source here makes whose answer is useful to the *other*
-     * sources. [LyricsRepository] runs it on its own, before it asks anybody
-     * for lyrics, so that everything downstream can name the recording rather
-     * than describe it.
+     * Matches by ISRC first when one is already known, otherwise runs up to
+     * [MAX_LYRICS_QUERY_STAGES] staged name queries (full metadata, without
+     * album, and lead artist) and checks any ISRC shared mid-flight.
      */
     internal suspend fun identify(
         title: String,
@@ -54,43 +52,92 @@ object BiniLyrics {
         durationMs: Long,
         album: String? = null,
         isrc: String? = null,
+        isrcProvider: (() -> String?)? = null,
+        searchGet: suspend (String) -> String? = { lyricsGet(it) },
     ): Hit? = withContext(Dispatchers.IO) {
-        val url = BASE.toHttpUrl().newBuilder()
-            .apply {
-                if (!isrc.isNullOrBlank()) {
-                    // Nothing else is worth sending: the recording is named, and
-                    // a title alongside it could only ever disagree with it.
-                    addQueryParameter("isrc", isrc)
-                } else {
-                    addQueryParameter("track", title)
-                    addQueryParameter("artist", artist)
-                    if (!album.isNullOrBlank()) addQueryParameter("album", album)
-                    val seconds = durationMs / 1000
+        var attempts = 0
+        val triedIsrcs = HashSet<String>()
+
+        suspend fun queryIsrc(code: String): Hit? {
+            attempts++
+            triedIsrcs.add(code)
+            val url = BASE.toHttpUrl().newBuilder()
+                .addQueryParameter("isrc", code)
+                .build()
+            return queryHits(url.toString(), searchGet)?.firstOrNull()
+        }
+
+        val initialIsrc = (isrc ?: isrcProvider?.invoke())?.trim()?.takeIf { it.isNotEmpty() }
+        if (initialIsrc != null) {
+            queryIsrc(initialIsrc)?.let { return@withContext it }
+        }
+
+        // When an explicit ISRC missed, spend the remaining budget (capped at
+        // MAX_LYRICS_QUERY_STAGES total queries) on album-less and lead-artist fallbacks.
+        val stages = if (attempts > 0) {
+            lyricsQueryStages(title, artist, null)
+        } else {
+            lyricsQueryStages(title, artist, album)
+        }
+
+        val cleanWantedArtist = artist.artistForLyricsSearch()
+        val seconds = durationMs / 1000
+        for (stage in stages) {
+            if (attempts >= MAX_LYRICS_QUERY_STAGES) break
+            val discovered = isrcProvider?.invoke()?.trim()?.takeIf { it.isNotEmpty() && it !in triedIsrcs }
+            if (discovered != null && attempts < MAX_LYRICS_QUERY_STAGES) {
+                queryIsrc(discovered)?.let { return@withContext it }
+                if (attempts >= MAX_LYRICS_QUERY_STAGES) break
+            }
+            attempts++
+            val url = BASE.toHttpUrl().newBuilder()
+                .addQueryParameter("track", stage.title)
+                .addQueryParameter("artist", stage.artist)
+                .apply {
+                    if (!stage.album.isNullOrBlank()) addQueryParameter("album", stage.album)
                     if (seconds > 0) addQueryParameter("duration", seconds.toString())
                 }
-            }
-            .build()
+                .build()
+            val results = queryHits(url.toString(), searchGet) ?: continue
+            best(results, stage.title, cleanWantedArtist.ifBlank { stage.artist }, durationMs)
+                ?.let { return@withContext it }
+        }
+        null
+    }
 
-        // A miss is a 404 here rather than an empty result set, which
-        // [lyricsGet] already turns into a null.
-        val body = lyricsGet(url.toString()) ?: return@withContext null
+    private suspend fun queryHits(
+        url: String,
+        searchGet: suspend (String) -> String?,
+    ): List<Hit>? {
+        // A miss may be a 404 (turned into null by [lyricsGet]) or a 200 with an empty list.
+        val body = searchGet(url) ?: return null
         val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
-            ?: return@withContext null
-        val results = response.results.orEmpty()
-        if (!isrc.isNullOrBlank()) results.firstOrNull() else best(results, title, artist, durationMs)
+            ?: return null
+        return response.results?.takeIf { it.isNotEmpty() }
     }
 
     /**
-     * The search by name can put a different recording first. So a hit is taken only if it
-     * passes the checks in [LrcRed.best].
+     * The search by name can put a different recording or a line-synced sibling
+     * first. Filter candidates using the same recording checks and
+     * [LrcRed.DURATION_TOLERANCE_SECONDS] window as [LrcRed.best], then prefer
+     * word-synced (`timing_type == "word"`) entries before breaking ties by
+     * closest duration.
      */
-    fun best(results: List<Hit>, title: String, artist: String, durationMs: Long): Hit? {
-        val asLrcRed = results.map {
-            LrcRed.Hit(isrc = it.isrc, title = it.trackName, artist = it.artistName, duration = it.duration?.toDouble())
-        }
-        val match = LrcRed.best(asLrcRed, title, artist, durationMs) ?: return null
-        return results.firstOrNull { it.isrc == match.isrc }
-    }
+    fun best(results: List<Hit>, title: String, artist: String, durationMs: Long): Hit? =
+        results.filter { hit ->
+            LrcRed.matchesCandidate(
+                candidateIsrc = hit.isrc,
+                candidateTitle = hit.trackName,
+                candidateArtist = hit.artistName,
+                candidateDurationSeconds = hit.duration?.toDouble(),
+                wantedTitle = title,
+                wantedArtist = artist,
+                wantedDurationMs = durationMs,
+            )
+        }.minWithOrNull(
+            compareBy<Hit> { if (it.timingType.equals("word", ignoreCase = true)) 0 else 1 }
+                .thenBy { LrcRed.durationDistanceSeconds(it.duration?.toDouble(), durationMs) },
+        )
 
     /**
      * The document a search already found, fetched and parsed. These are
@@ -104,7 +151,7 @@ object BiniLyrics {
         val document = hit.lyricsUrl?.takeIf { it.isNotBlank() } ?: return@withContext null
         val ttml = get(document) ?: return@withContext null
         val lines = TtmlLyrics.parse(ttml).takeIf { it.isNotEmpty() } ?: return@withContext null
-        Match(hit.isrc?.takeIf { it.isNotBlank() }, lines)
+        Match(LrcRed.normalizeIsrc(hit.isrc) ?: hit.isrc?.takeIf { it.isNotBlank() }, lines)
     }
 
     suspend fun lyrics(
@@ -114,7 +161,16 @@ object BiniLyrics {
         album: String? = null,
         isrc: String? = null,
         get: suspend (String) -> String? = { lyricsGet(it) },
-    ): Match? = identify(title, artist, durationMs, album, isrc)?.let { lyricsFor(it, get) }
+        isrcProvider: (() -> String?)? = null,
+        onIsrc: ((String) -> Unit)? = null,
+        searchGet: suspend (String) -> String? = { lyricsGet(it) },
+    ): Match? {
+        val hit = identify(title, artist, durationMs, album, isrc, isrcProvider, searchGet)
+            ?: return null
+        (LrcRed.normalizeIsrc(hit.isrc) ?: hit.isrc?.trim()?.takeIf { it.isNotEmpty() })
+            ?.let { onIsrc?.invoke(it) }
+        return lyricsFor(hit, get)
+    }
 
     @Serializable
     data class Response(
