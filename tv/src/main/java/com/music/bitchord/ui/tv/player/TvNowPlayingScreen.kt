@@ -36,6 +36,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.model.LikeStatus
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.playback.PlayerState
@@ -103,15 +104,18 @@ fun TvNowPlayingScreen(
     val isLiked = likeOverrides[song.videoId] == LikeStatus.LIKE
     val shuffle by com.music.bitchord.playback.QueueShuffle.enabled.collectAsState()
     val autoplay by AppSettings.autoplay.collectAsState()
+    val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsState()
     val playerStyle by TvSettings.tvPlayerStyle.collectAsState()
 
-    LaunchedEffect(song.videoId, durationMs) {
+    LaunchedEffect(song.videoId, song.isVideo, durationMs, smartVersionAlignment) {
         viewModel.loadLyrics(
             videoId = song.videoId,
             title = song.title,
             artist = song.artist,
-            durationMs = durationMs.coerceAtLeast(0L),
+            durationMs = durationMs.takeIf { it > 0L } ?: song.durationMillis(),
             album = song.albumName,
+            localUri = song.localUri,
+            isVideo = song.isVideo,
         )
     }
 

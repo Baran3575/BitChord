@@ -31,13 +31,8 @@ object LrcRed {
 
     private const val BASE = "https://lrc.red/"
 
-    /**
-     * How far a hit's length may be from the playing track's. YouTube reports
-     * whole seconds, and lrc.red lists the 2011 remaster of "Bohemian Rhapsody"
-     * at 356.5 s against 352.0 s for the live cut — close enough that the
-     * version words in [best] have to do most of the work, not this.
-     */
-    private const val DURATION_TOLERANCE_SECONDS = 3.0
+    /** Strict ±3.5s duration tolerance shared across studio lyric providers. */
+    private const val DURATION_TOLERANCE_SECONDS = STUDIO_DURATION_TOLERANCE_MS / 1000.0
 
     /** `CC-XXX-YY-NNNNN` without the dashes — and nothing else goes into a path. */
     private val ISRC = Regex("""[A-Z]{2}[A-Z0-9]{3}\d{7}""")
@@ -56,19 +51,30 @@ object LrcRed {
         isrc: String? = null,
         get: suspend (String) -> String? = { lyricsGet(it) },
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        if (durationMs <= 0L) return@withContext null
         val known = isrc?.let(::documentUrl)
-        if (known != null) document(known, get)?.let { return@withContext it }
+        if (known != null) document(known, durationMs, get)?.let { return@withContext it }
 
         // A known recording lrc.red doesn't have — a local file's tag naming a
         // release it never indexed — still gets a search: the same song is
         // often catalogued under a sibling release's code.
         val hit = search(title, artist, durationMs) ?: return@withContext null
         val found = hit.isrc?.let(::documentUrl)?.takeIf { it != known } ?: return@withContext null
-        document(found, get)
+        document(found, durationMs, get)
     }
 
-    private suspend fun document(url: String, get: suspend (String) -> String?): List<LyricLine>? =
-        get(url)?.let(TtmlLyrics::parse)?.takeIf { it.isNotEmpty() }
+    internal suspend fun document(
+        url: String,
+        durationMs: Long,
+        get: suspend (String) -> String?,
+    ): List<LyricLine>? {
+        if (durationMs <= 0L) return null
+        val ttml = get(url) ?: return null
+        val parsed = TtmlLyrics.parseDocument(ttml)
+        if (parsed.lines.isEmpty()) return null
+        if (!ProviderLyrics.matchesStudioDuration(parsed.lines, parsed.durationMs, durationMs)) return null
+        return parsed.lines
+    }
 
     private fun search(title: String, artist: String, durationMs: Long): Hit? {
         val url = "${BASE}search.json".toHttpUrl().newBuilder()
@@ -98,13 +104,14 @@ object LrcRed {
      * rank breaks a tie.
      */
     fun best(hits: List<Hit>, title: String, artist: String, durationMs: Long): Hit? {
+        if (durationMs <= 0L) return null
         val wantedTitle = coreOf(title)
         val wantedVersion = versionOf(title)
         val wantedArtists = artistsOf(artist)
         val seconds = durationMs / 1000.0
 
         fun distance(hit: Hit): Double =
-            if (durationMs > 0 && hit.duration != null) abs(hit.duration - seconds) else 0.0
+            hit.duration?.takeIf { it > 0.0 }?.let { abs(it - seconds) } ?: Double.MAX_VALUE
 
         return hits
             .filter { hit ->

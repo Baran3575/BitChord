@@ -39,6 +39,7 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.smart.VersionAudioAligner
 import com.music.bitchord.ui.navigation.AppNavigator
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
@@ -362,6 +363,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val artist: String,
         val durationMs: Long,
         val album: String?,
+        val isVideo: Boolean,
     )
 
     private var currentLyricsRequest: LyricsRequest? = null
@@ -393,6 +395,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         durationMs: Long,
         album: String? = null,
         localUri: String? = null,
+        isVideo: Boolean = false,
     ) {
         val sources = if (AppSettings.syncedLyrics.value) {
             AppSettings.lyricsSources.value
@@ -400,7 +403,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             emptySet()
         }
         val key = lyricsLookupKey(
-            videoId, sources, AppSettings.lyricsSourceOrder.value, AppSettings.prioritizeSyllableSync.value,
+            videoId = videoId,
+            sources = sources,
+            order = AppSettings.lyricsSourceOrder.value,
+            prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+            isVideo = isVideo,
+            smartVersionAlignment = AppSettings.smartVersionAlignment.value,
         )
         if (lyricsFor == key) return
         // The duration lands a beat after the track, and a database match needs
@@ -414,7 +422,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         lyricsFor = key
         lyricsGeneration += 1
         val generation = lyricsGeneration
-        currentLyricsRequest = LyricsRequest(videoId, title, artist, durationMs, album)
+        currentLyricsRequest = LyricsRequest(videoId, title, artist, durationMs, album, isVideo)
         selectedLyricsSource = null
         manualLyricsJobs.values.forEach(Job::cancel)
         manualLyricsJobs.clear()
@@ -460,8 +468,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             val found = LyricsRepository.lyrics(
-                videoId, title, artist, durationMs, album, sources,
-                AppSettings.lyricsSourceOrder.value, AppSettings.prioritizeSyllableSync.value,
+                videoId = videoId,
+                title = title,
+                artist = artist,
+                durationMs = durationMs,
+                album = album,
+                sources = sources,
+                order = AppSettings.lyricsSourceOrder.value,
+                prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                isVideo = isVideo,
+                alignmentResolver = ::resolveLyricsAlignmentOffsetMs,
                 onSourceStarted = { source -> providerStarted(generation, source) },
                 onSourceResult = { source, result ->
                     providerFinished(generation, source, result)
@@ -523,6 +539,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 sources = setOf(source),
                 order = listOf(source),
                 prioritizeSyllableSync = false,
+                isVideo = request.isVideo,
+                alignmentResolver = ::resolveLyricsAlignmentOffsetMs,
                 onSourceStarted = { provider -> providerStarted(generation, provider) },
                 onSourceResult = { provider, result ->
                     providerFinished(generation, provider, result)
@@ -531,6 +549,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
     }
+
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private suspend fun resolveLyricsAlignmentOffsetMs(
+        studioSong: Song,
+        videoSong: Song,
+    ): Long? = VersionAudioAligner.resolveLyricsOffsetMs(
+        context = getApplication(),
+        studioSong = studioSong,
+        videoSong = videoSong,
+    )
 
     private fun providerStarted(generation: Long, source: LyricsSource) {
         if (generation != lyricsGeneration) return
@@ -3822,4 +3850,6 @@ internal fun lyricsLookupKey(
     sources: Set<LyricsSource>,
     order: List<LyricsSource>,
     prioritizeSyllableSync: Boolean,
-): List<Any> = listOf(videoId, sources, order, prioritizeSyllableSync)
+    isVideo: Boolean = false,
+    smartVersionAlignment: Boolean = true,
+): List<Any> = listOf(videoId, sources, order, prioritizeSyllableSync, isVideo, smartVersionAlignment)

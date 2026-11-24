@@ -1236,9 +1236,10 @@ private fun BitChordApp(
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val lyricsSourceOrder by AppSettings.lyricsSourceOrder.collectAsStateWithLifecycle()
     val prioritizeSyllableSync by AppSettings.prioritizeSyllableSync.collectAsStateWithLifecycle()
+    val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
     LaunchedEffect(
-        player.song?.videoId, player.durationMs, syncedLyricsEnabled, lyricsSources,
-        lyricsSourceOrder, prioritizeSyllableSync,
+        player.song?.videoId, player.song?.isVideo, player.durationMs, syncedLyricsEnabled,
+        lyricsSources, lyricsSourceOrder, prioritizeSyllableSync, smartVersionAlignment,
     ) {
         player.song?.let {
             viewModel.loadLyrics(
@@ -1253,6 +1254,7 @@ private fun BitChordApp(
                 player.durationMs.takeIf { ms -> ms > 0L } ?: it.durationMillis(),
                 it.albumName,
                 it.localUri,
+                it.isVideo,
             )
         }
     }

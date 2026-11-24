@@ -1,5 +1,7 @@
 package com.music.bitchord.data.lyrics
 
+import com.music.bitchord.data.model.VersionTimeMap
+
 /** Shorter instrumental breaks aren't worth interrupting the line for. */
 internal const val MIN_GAP_MS = 4_000L
 
@@ -32,3 +34,34 @@ internal fun List<LyricLine>.withInstrumentalGaps(): List<LyricLine> {
     }
     return out
 }
+
+/**
+ * Shifts timed studio lyrics by [offsetMs] and rebuilds instrumental gaps from
+ * scratch so newly introduced intros or trimmed lead-ins get accurate breaks.
+ * Untimed plain lyric lists are returned unchanged.
+ */
+fun List<LyricLine>.shifted(offsetMs: Long): List<LyricLine> {
+    if (isEmpty() || isUntimedPlain()) return this
+    return filterNot { it.isGap }
+        .map { it.shifted(offsetMs) }
+        .sortedBy { it.timeMs }
+        .withInstrumentalGaps()
+}
+
+/**
+ * Remaps timed studio lyrics onto the video timeline of [timeMap], clamping
+ * ends at segment boundaries and rebuilding instrumental gaps for intros and
+ * mid-video skits. Untimed plain lyric lists are returned unchanged.
+ */
+fun List<LyricLine>.remapped(timeMap: VersionTimeMap): List<LyricLine> {
+    if (isEmpty() || isUntimedPlain()) return this
+    val vocals = filterNot { it.isGap }
+    return vocals.mapIndexed { index, line ->
+        line.remapped(timeMap, nextStudioTimeMs = vocals.getOrNull(index + 1)?.timeMs)
+    }
+        .sortedBy { it.timeMs }
+        .withInstrumentalGaps()
+}
+
+private fun List<LyricLine>.isUntimedPlain(): Boolean =
+    all { !it.isGap && it.timeMs == 0L && it.words.isEmpty() && it.sungUntilMs == null }

@@ -4,6 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import kotlin.math.abs
+import kotlin.math.roundToLong
 
 /**
  * A community-submitted lyrics database, and the only source here whose
@@ -34,7 +36,18 @@ object Unison {
         artist: String,
         durationMs: Long,
         album: String? = null,
-    ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        videoId: String? = null,
+        isVideo: Boolean = false,
+    ): List<LyricLine>? = entry(title, artist, durationMs, album)
+        ?.let { matchingLinesOf(it, durationMs, videoId, isVideo) }
+
+    internal suspend fun entry(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+    ): Entry? = withContext(Dispatchers.IO) {
+        if (durationMs <= 0L) return@withContext null
         val url = BASE.toHttpUrl().newBuilder()
             .addQueryParameter("song", title)
             .addQueryParameter("artist", artist)
@@ -49,7 +62,43 @@ object Unison {
         val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
             ?: return@withContext null
         if (response.success != true) return@withContext null
-        linesOf(response.data ?: return@withContext null)
+        response.data
+    }
+
+    internal fun matchingLinesOf(
+        data: Entry,
+        durationMs: Long,
+        videoId: String? = null,
+        isVideo: Boolean = false,
+    ): List<LyricLine>? {
+        if (durationMs <= 0L) return null
+        val lines = linesOf(data) ?: return null
+        val explicitMs = explicitDurationMs(data)
+        if (explicitMs != null) {
+            return lines.takeIf { abs(explicitMs - durationMs) <= STUDIO_DURATION_TOLERANCE_MS }
+        }
+        val vocalLines = lines.filterNot { it.isGap }
+        val isTimed = vocalLines.any { it.timeMs > 0L || it.endMs > 0L }
+        if (!isTimed) {
+            return if (isVideo && (videoId.isNullOrBlank() || data.videoId != videoId)) null else lines
+        }
+        if (!isVideo && !videoId.isNullOrBlank() && data.videoId == videoId) {
+            val spanMs = vocalLines.maxOfOrNull { maxOf(it.timeMs, it.endMs) } ?: 0L
+            return lines.takeIf { spanMs in 1L..(durationMs + STUDIO_DURATION_TOLERANCE_MS) }
+        }
+        return lines.takeIf { ProviderLyrics.matchesStudioDuration(lines, null, durationMs) }
+    }
+
+    internal fun explicitDurationMs(data: Entry): Long? {
+        data.duration?.takeIf { it > 0.0 }?.let { raw ->
+            return if (raw < 1_000.0) (raw * 1_000.0).roundToLong() else raw.roundToLong()
+        }
+        val text = data.lyrics?.takeIf { it.isNotBlank() } ?: return null
+        return if (data.format.equals(TTML, ignoreCase = true)) {
+            TtmlLyrics.parseDocument(text).durationMs
+        } else {
+            ProviderLyrics.lrcHeaderDurationMs(text)
+        }
     }
 
     /** The three shapes, told apart by what the entry says it is. */
@@ -89,9 +138,11 @@ object Unison {
 
     @Serializable
     data class Entry(
+        val videoId: String? = null,
         val song: String? = null,
         val artist: String? = null,
         val album: String? = null,
+        val duration: Double? = null,
         val lyrics: String? = null,
         /** `ttml` or `lrc`. */
         val format: String? = null,

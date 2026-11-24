@@ -51,8 +51,8 @@ object Musixmatch {
         artist: String,
         durationMs: Long,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val seconds = (durationMs / 1000).toInt()
-        val track = bestTrack(title, artist, seconds) ?: return@withContext null
+        if (durationMs <= 0L) return@withContext null
+        val track = bestTrack(title, artist, durationMs) ?: return@withContext null
 
         // The subtitle endpoint is line-timed by design. Prefer the separate rich-sync
         // tier so tracks that have syllable data do not get flattened on ingestion.
@@ -69,12 +69,46 @@ object Musixmatch {
         LrcLib.parseLrc(lrc).takeIf { it.isNotEmpty() }
     }
 
-    private suspend fun bestTrack(title: String, artist: String, seconds: Int): Track? {
+    private suspend fun bestTrack(title: String, artist: String, durationMs: Long): Track? {
         val tracks = searchTrack(title, artist) ?: return null
-        return tracks.maxByOrNull { score(it, title, artist, seconds) }
+        return selectBestTrack(tracks, title, artist, durationMs)
     }
 
-    private fun score(track: Track, title: String, artist: String, seconds: Int): Double {
+    internal fun selectBestTrackFromJson(
+        searchResponseJson: String,
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): Track? {
+        val body = runCatching {
+            lyricsJson.decodeFromString<Envelope<TrackSearchBody>>(searchResponseJson)
+        }.getOrNull() ?: return null
+        val tracks = body.message.body?.trackList?.map { it.track } ?: return null
+        return selectBestTrack(tracks, title, artist, durationMs)
+    }
+
+    internal fun selectBestTrack(
+        tracks: List<Track>,
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): Track? {
+        if (durationMs <= 0L) return null
+        return tracks
+            .filter { track ->
+                val lengthSec = track.trackLength ?: return@filter false
+                lengthSec > 0 && abs(lengthSec * 1_000L - durationMs) <= STUDIO_DURATION_TOLERANCE_MS
+            }
+            .map { it to score(it, title, artist, durationMs) }
+            .filter { it.second > 0.0 }
+            .maxWithOrNull(
+                compareBy<Pair<Track, Double>> { it.second }
+                    .thenBy { -abs(it.first.trackLength!! * 1_000L - durationMs) },
+            )
+            ?.first
+    }
+
+    private fun score(track: Track, title: String, artist: String, durationMs: Long): Double {
         var score = 0.0
         val name = track.trackName.trim().lowercase(Locale.ROOT)
         val targetTitle = title.trim().lowercase(Locale.ROOT)
@@ -83,16 +117,20 @@ object Musixmatch {
             name.contains(targetTitle) || targetTitle.contains(name) -> 40.0
             else -> 0.0
         }
-        if (track.artistName.trim().lowercase(Locale.ROOT).contains(artist.trim().lowercase(Locale.ROOT))) {
-            score += 40.0
+        if (score == 0.0) return 0.0
+        val targetArtist = artist.trim().lowercase(Locale.ROOT)
+        if (targetArtist.isNotEmpty()) {
+            val trackArtist = track.artistName.trim().lowercase(Locale.ROOT)
+            if (trackArtist.contains(targetArtist) || targetArtist.contains(trackArtist)) {
+                score += 40.0
+            }
         }
         track.trackLength?.let { length ->
-            val diff = abs(length - seconds)
+            val diffMs = abs(length * 1_000L - durationMs)
             score += when {
-                diff <= 2 -> 30.0
-                diff <= 5 -> 15.0
-                diff <= 10 -> 5.0
-                else -> -20.0
+                diffMs <= 1_500L -> 30.0
+                diffMs <= STUDIO_DURATION_TOLERANCE_MS -> 15.0
+                else -> -100.0
             }
         }
         return score
@@ -313,7 +351,7 @@ object Musixmatch {
     private data class TrackWrapper(val track: Track)
 
     @Serializable
-    private data class Track(
+    internal data class Track(
         @SerialName("track_id") val trackId: Long,
         @SerialName("track_name") val trackName: String,
         @SerialName("artist_name") val artistName: String = "",

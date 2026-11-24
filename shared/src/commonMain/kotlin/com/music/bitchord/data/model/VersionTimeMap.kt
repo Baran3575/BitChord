@@ -22,6 +22,19 @@ class VersionTimeMap(segments: List<Segment>) {
     }
 
     /**
+     * The shared stretch governing [positionMs]: the stretch containing it, the
+     * next stretch when [positionMs] falls in an unshared gap before it, or the
+     * final stretch once past the end.
+     */
+    fun segmentAt(positionMs: Long): Segment {
+        for (segment in segments) {
+            if (positionMs < segment.fromStartMs) return segment
+            if (positionMs - segment.fromStartMs < segment.durationMs) return segment
+        }
+        return segments.last()
+    }
+
+    /**
      * Where [positionMs] in the playing cut falls in the other one.
      *
      * Inside a shared stretch it is exact. Outside one — a video's spoken
@@ -37,6 +50,32 @@ class VersionTimeMap(segments: List<Segment>) {
         val last = segments.last()
         return last.toStartMs + last.durationMs
     }
+
+    /**
+     * Maps `[startMs, endMs]` onto the target timeline while clamping [endMs]
+     * at the end of [startMs]'s active segment so a word, syllable, or line tail
+     * never stretches across an unshared break such as a mid-video skit.
+     */
+    fun mapSpan(startMs: Long, endMs: Long): Pair<Long, Long> {
+        val segment = segmentAt(startMs)
+        val fromEnd = segment.fromStartMs + segment.durationMs
+        val toEnd = segment.toStartMs + segment.durationMs
+        val mappedStart = when {
+            startMs < segment.fromStartMs -> segment.toStartMs
+            startMs >= fromEnd -> toEnd
+            else -> segment.toStartMs + (startMs - segment.fromStartMs)
+        }
+        if (endMs <= startMs) return mappedStart to mappedStart
+        val mappedEnd = when {
+            endMs <= segment.fromStartMs -> segment.toStartMs
+            endMs >= fromEnd -> toEnd
+            else -> segment.toStartMs + (endMs - segment.fromStartMs)
+        }
+        return mappedStart to maxOf(mappedStart, mappedEnd)
+    }
+
+    /** End of the last shared stretch on the source side. */
+    fun fromDurationMs(): Long = segments.maxOf { it.fromStartMs + it.durationMs }
 
     /** The same pairing read from the other side. */
     fun inverted(): VersionTimeMap =

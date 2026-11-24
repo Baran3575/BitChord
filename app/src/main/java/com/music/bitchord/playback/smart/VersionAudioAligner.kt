@@ -7,12 +7,17 @@ import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioCache
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.PI
@@ -36,10 +41,14 @@ object VersionAudioAligner {
     private const val WIN_MS = 40.0 // 40ms analysis window
     private const val MAX_LAG_SECONDS = 40.0 // Search up to ±40s drift/intro
     private const val MIN_CONFIDENCE = 0.40 // Minimum normalized correlation
+    private const val LYRICS_HEAD_TIMEOUT_MS = 8_000L
+    private const val LYRICS_MEASURE_TIMEOUT_MS = 10_000L
 
     // Cache computed offsets so subsequent switches are instantaneous:
     // (sourceVideoId, targetVideoId) -> offsetMs
     private val offsetCache = ConcurrentHashMap<Pair<String, String>, Long>()
+    private val lyricsMeasurements = ConcurrentHashMap<Pair<String, String>, Deferred<Long?>>()
+    private val lyricsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** How far a switch to the other cut has got; published for stats for nerds. */
     enum class CutPhase { FETCHING, MEASURING, ALIGNED, FAILED }
@@ -114,6 +123,75 @@ object VersionAudioAligner {
     fun getCachedOffsetMs(sourceVideoId: String, targetVideoId: String): Long? {
         if (sourceVideoId == targetVideoId) return 0L
         return offsetCache[sourceVideoId to targetVideoId]
+    }
+
+    internal fun cacheOffsetForTest(sourceVideoId: String, targetVideoId: String, offsetMs: Long) {
+        offsetCache[sourceVideoId to targetVideoId] = offsetMs
+        offsetCache[targetVideoId to sourceVideoId] = -offsetMs
+    }
+
+    internal fun clearCacheForTest() {
+        offsetCache.clear()
+    }
+
+    /**
+     * Resolves the studio-to-video offset for lyrics remapping, skipping
+     * measurement entirely when [AppSettings.smartVersionAlignment] is false
+     * and bounding both head prefetch and cross-correlation time.
+     */
+    suspend fun resolveLyricsOffsetMs(
+        context: Context,
+        studioSong: Song,
+        videoSong: Song,
+        smartAlignmentEnabled: Boolean = AppSettings.smartVersionAlignment.value,
+        measure: (suspend (Song, Song) -> Long?)? = null,
+    ): Long? {
+        if (!smartAlignmentEnabled) return null
+        if (studioSong.videoId == videoSong.videoId) return 0L
+        getCachedOffsetMs(studioSong.videoId, videoSong.videoId)?.let { return it }
+        if (measure != null) return measure(studioSong, videoSong)
+        return measureBoundedForLyrics(context.applicationContext, studioSong, videoSong)
+    }
+
+    private suspend fun measureBoundedForLyrics(
+        appContext: Context,
+        studioSong: Song,
+        videoSong: Song,
+    ): Long? {
+        val key = studioSong.videoId to videoSong.videoId
+        getCachedOffsetMs(key.first, key.second)?.let { return it }
+        val deferred = lyricsMeasurements.computeIfAbsent(key) {
+            lyricsScope.async {
+                try {
+                    val studioUri = Uri.parse(studioSong.localUri ?: AutomixAnalysisSource.opusUri(studioSong.videoId))
+                    val videoUri = Uri.parse(videoSong.localUri ?: AutomixAnalysisSource.opusUri(videoSong.videoId))
+                    coroutineScope {
+                        val studioHead = async {
+                            studioSong.localUri != null ||
+                                AudioCache.awaitAnalysisHead(studioUri, LYRICS_HEAD_TIMEOUT_MS)
+                        }
+                        val videoHead = async {
+                            videoSong.localUri != null ||
+                                AudioCache.awaitAnalysisHead(videoUri, LYRICS_HEAD_TIMEOUT_MS)
+                        }
+                        studioHead.await()
+                        videoHead.await()
+                    }
+                    withTimeoutOrNull(LYRICS_MEASURE_TIMEOUT_MS) {
+                        findOffsetMs(
+                            context = appContext,
+                            sourceSong = studioSong,
+                            targetSong = videoSong,
+                        )
+                    }
+                } finally {
+                    lyricsMeasurements.remove(key)
+                }
+            }
+        }
+        return withTimeoutOrNull(LYRICS_HEAD_TIMEOUT_MS + LYRICS_MEASURE_TIMEOUT_MS) {
+            deferred.await()
+        }
     }
 
     /**

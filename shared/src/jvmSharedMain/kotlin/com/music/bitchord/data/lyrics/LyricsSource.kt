@@ -21,6 +21,8 @@ enum class LyricsSource(
      * outright would only mean writing it again if it comes back.
      */
     val hidden: Boolean = false,
+    /** True when the provider serves studio-release timings rather than video-keyed or plain web lyrics. */
+    val isStudio: Boolean = true,
 ) {
     // Declaration order is the default priority — [AppSettings.lyricsSourceOrder]
     // and [AppSettings.lyricsSources] both fall back to [LyricsSource.entries]
@@ -85,6 +87,7 @@ enum class LyricsSource(
         detail = "Matched on the video, so never the wrong edit",
         wordSynced = true,
         hidden = true,
+        isStudio = false,
     ),
     UNISON(
         label = "Unison",
@@ -95,11 +98,13 @@ enum class LyricsSource(
         label = "YouTube captions",
         detail = "Timed captions matched to the exact playing video",
         wordSynced = false,
+        isStudio = false,
     ),
     YOUTUBE_MUSIC(
         label = "YouTube Music",
         detail = "Timed lyrics from the playing video's Lyrics tab",
         wordSynced = false,
+        isStudio = false,
     ),
     MEGALOBIZ(
         label = "Megalobiz",
@@ -126,8 +131,12 @@ enum class LyricsSource(
         label = "Genius",
         detail = "Plain text fallback, massive web catalogue",
         wordSynced = false,
+        isStudio = false,
     ),
     ;
+
+    val isVideoKeyed: Boolean
+        get() = this == YOUTUBE_TRANSCRIPT || this == YOUTUBE_MUSIC || this == SIMP_MUSIC
 
     companion object {
         /** Every source a listener can see and choose, in default priority. */

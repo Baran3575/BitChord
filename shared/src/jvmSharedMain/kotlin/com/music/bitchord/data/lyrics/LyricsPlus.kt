@@ -48,6 +48,7 @@ object LyricsPlus {
         album: String? = null,
         isrc: String? = null,
     ): List<LyricLine>? = coroutineScope {
+        if (durationMs <= 0L) return@coroutineScope null
         val hosts = lastGood.get()
             ?.let { listOf(it) + MIRRORS.filterNot { mirror -> mirror == it } }
             ?: MIRRORS
@@ -101,7 +102,15 @@ object LyricsPlus {
         val body = lyricsGet(url.toString()) ?: return@withContext null
         val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
             ?: return@withContext null
-        parse(response).takeIf { it.isNotEmpty() }
+        matchingLines(response, durationMs)
+    }
+
+    internal fun matchingLines(response: Response, durationMs: Long): List<LyricLine>? {
+        if (durationMs <= 0L) return null
+        val lines = parse(response).takeIf { it.isNotEmpty() } ?: return null
+        val explicitDurationMs = response.metadata?.totalDurationMs()
+        if (!ProviderLyrics.matchesStudioDuration(lines, explicitDurationMs, durationMs)) return null
+        return lines
     }
 
     fun parse(response: Response): List<LyricLine> {
@@ -201,7 +210,11 @@ object LyricsPlus {
     @Serializable
     data class Metadata(
         val agents: Map<String, Agent>? = null,
-    )
+        val totalDuration: JsonElement? = null,
+    ) {
+        fun totalDurationMs(): Long? =
+            (totalDuration as? JsonPrimitive)?.contentOrNull?.let(ProviderLyrics::parseFlexibleDurationMs)
+    }
 
     @Serializable
     data class Agent(

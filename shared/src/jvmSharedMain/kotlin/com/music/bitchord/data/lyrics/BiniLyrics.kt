@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import kotlin.math.abs
 
 /**
  * Apple Music TTML again, from a third host — and the only one here that will
@@ -55,6 +56,7 @@ object BiniLyrics {
         album: String? = null,
         isrc: String? = null,
     ): Hit? = withContext(Dispatchers.IO) {
+        if (durationMs <= 0L) return@withContext null
         val url = BASE.toHttpUrl().newBuilder()
             .apply {
                 if (!isrc.isNullOrBlank()) {
@@ -77,7 +79,17 @@ object BiniLyrics {
         val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
             ?: return@withContext null
         val results = response.results.orEmpty()
-        if (!isrc.isNullOrBlank()) results.firstOrNull() else best(results, title, artist, durationMs)
+        if (!isrc.isNullOrBlank()) {
+            results.firstOrNull { hit -> hitMatchesDuration(hit, durationMs, allowMissing = true) }
+        } else {
+            best(results, title, artist, durationMs)
+        }
+    }
+
+    internal fun hitMatchesDuration(hit: Hit, durationMs: Long, allowMissing: Boolean = false): Boolean {
+        if (durationMs <= 0L) return false
+        val hitSeconds = hit.duration ?: return allowMissing
+        return hitSeconds > 0 && abs(hitSeconds * 1_000L - durationMs) <= STUDIO_DURATION_TOLERANCE_MS
     }
 
     /**
@@ -99,12 +111,18 @@ object BiniLyrics {
      */
     suspend fun lyricsFor(
         hit: Hit,
+        durationMs: Long,
         get: suspend (String) -> String? = { lyricsGet(it) },
     ): Match? = withContext(Dispatchers.IO) {
+        if (durationMs <= 0L) return@withContext null
+        if (!hitMatchesDuration(hit, durationMs, allowMissing = true)) return@withContext null
         val document = hit.lyricsUrl?.takeIf { it.isNotBlank() } ?: return@withContext null
         val ttml = get(document) ?: return@withContext null
-        val lines = TtmlLyrics.parse(ttml).takeIf { it.isNotEmpty() } ?: return@withContext null
-        Match(hit.isrc?.takeIf { it.isNotBlank() }, lines)
+        val parsed = TtmlLyrics.parseDocument(ttml)
+        if (parsed.lines.isEmpty()) return@withContext null
+        val explicitMs = parsed.durationMs ?: hit.duration?.takeIf { it > 0 }?.let { it * 1_000L }
+        if (!ProviderLyrics.matchesStudioDuration(parsed.lines, explicitMs, durationMs)) return@withContext null
+        Match(hit.isrc?.takeIf { it.isNotBlank() }, parsed.lines)
     }
 
     suspend fun lyrics(
@@ -114,7 +132,10 @@ object BiniLyrics {
         album: String? = null,
         isrc: String? = null,
         get: suspend (String) -> String? = { lyricsGet(it) },
-    ): Match? = identify(title, artist, durationMs, album, isrc)?.let { lyricsFor(it, get) }
+    ): Match? {
+        if (durationMs <= 0L) return null
+        return identify(title, artist, durationMs, album, isrc)?.let { lyricsFor(it, durationMs, get) }
+    }
 
     @Serializable
     data class Response(

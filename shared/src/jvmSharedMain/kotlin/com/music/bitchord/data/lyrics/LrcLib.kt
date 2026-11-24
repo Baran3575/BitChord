@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import kotlin.math.abs
+import kotlin.math.roundToLong
 
 /**
  * Lyrics from LRCLIB — a free, key-less, community lyrics database.
@@ -32,43 +33,68 @@ object LrcLib {
     /** Synced lyrics for a track, or null when nothing usable is published. */
     suspend fun lyrics(title: String, artist: String, durationMs: Long): List<LyricLine>? =
         withContext(Dispatchers.IO) {
+            if (durationMs <= 0L) return@withContext null
             val cleanTitle = title.clean()
             val cleanArtist = artist.clean()
             val seconds = (durationMs / 1000).toInt()
 
-            val exact = runCatching { exactMatch(cleanTitle, cleanArtist, seconds) }.getOrNull()
-            val synced = exact ?: runCatching { bestSearchHit(cleanTitle, cleanArtist, seconds) }
+            val exact = runCatching { exactMatch(cleanTitle, cleanArtist, seconds, durationMs) }.getOrNull()
+            val synced = exact ?: runCatching { bestSearchHit(cleanTitle, cleanArtist, durationMs) }
                 .getOrNull()
             synced?.let(::parseLrc)?.takeIf { it.isNotEmpty() }
         }
 
-    private fun exactMatch(title: String, artist: String, seconds: Int): String? {
+    private fun exactMatch(title: String, artist: String, seconds: Int, durationMs: Long): String? {
         val url = "$BASE/get".toHttpUrl().newBuilder()
             .addQueryParameter("track_name", title)
             .addQueryParameter("artist_name", artist)
             .addQueryParameter("duration", seconds.toString())
             .build()
         val body = get(url.toString()) ?: return null
-        return (json.parseToJsonElement(body) as? JsonObject)
-            ?.get("syncedLyrics")?.jsonPrimitive?.contentOrNull
+        return parseExactMatch(body, durationMs)
+    }
+
+    internal fun parseExactMatch(body: String, durationMs: Long): String? {
+        if (durationMs <= 0L) return null
+        val obj = json.parseToJsonElement(body) as? JsonObject ?: return null
+        val reportedSeconds = obj["duration"]?.jsonPrimitive?.doubleOrNull
+        if (reportedSeconds != null) {
+            val reportedMs = (reportedSeconds * 1_000.0).roundToLong()
+            if (reportedMs <= 0L || abs(reportedMs - durationMs) > STUDIO_DURATION_TOLERANCE_MS) {
+                return null
+            }
+        }
+        return obj["syncedLyrics"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
     }
 
     /**
      * Fuzzy fallback. Prefers whichever hit is closest in length to what we're
-     * actually playing — same song, different edit, would drift otherwise.
+     * actually playing, rejecting anything outside [STUDIO_DURATION_TOLERANCE_MS].
      */
-    private fun bestSearchHit(title: String, artist: String, seconds: Int): String? {
+    private fun bestSearchHit(title: String, artist: String, durationMs: Long): String? {
         val url = "$BASE/search".toHttpUrl().newBuilder()
             .addQueryParameter("track_name", title)
             .addQueryParameter("artist_name", artist)
             .build()
         val body = get(url.toString()) ?: return null
+        return selectBestSearchHit(body, durationMs)
+    }
+
+    internal fun selectBestSearchHit(body: String, durationMs: Long): String? {
+        if (durationMs <= 0L) return null
         val hits = json.parseToJsonElement(body) as? JsonArray ?: return null
         return hits.mapNotNull { it as? JsonObject }
-            .filter { it["syncedLyrics"]?.jsonPrimitive?.contentOrNull?.isNotBlank() == true }
-            .minByOrNull {
-                val d = it["duration"]?.jsonPrimitive?.doubleOrNull ?: 0.0
-                abs(d - seconds)
+            .filter { hit ->
+                val synced = hit["syncedLyrics"]?.jsonPrimitive?.contentOrNull
+                val d = hit["duration"]?.jsonPrimitive?.doubleOrNull
+                val reportedMs = d?.let { (it * 1_000.0).roundToLong() } ?: -1L
+                !synced.isNullOrBlank() &&
+                    reportedMs > 0L &&
+                    abs(reportedMs - durationMs) <= STUDIO_DURATION_TOLERANCE_MS
+            }
+            .minByOrNull { hit ->
+                val reportedMs = ((hit["duration"]!!.jsonPrimitive.doubleOrNull!!) * 1_000.0).roundToLong()
+                abs(reportedMs - durationMs)
             }
             ?.get("syncedLyrics")?.jsonPrimitive?.contentOrNull
     }
