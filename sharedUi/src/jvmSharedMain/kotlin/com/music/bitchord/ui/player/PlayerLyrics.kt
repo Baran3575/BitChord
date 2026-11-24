@@ -21,7 +21,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -50,6 +52,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.CircularProgressIndicator
@@ -544,6 +547,8 @@ private data class TranslationParticle(
  * lookup is still running is a fact, and one that says there are no lyrics is a
  * finding rather than a choice.
  */
+private val LYRICS_STATUS_PILL_SHAPE = RoundedCornerShape(50)
+
 @Composable
 internal fun LyricsStatusWithChange(
     status: String,
@@ -552,33 +557,65 @@ internal fun LyricsStatusWithChange(
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && onStatusClick != null) 0.96f else 1f,
+        animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing),
+        label = "lyricsStatusPillScale",
+    )
+
     Row(
-        modifier = modifier.additiveChrome(LocalPlayerChrome.current),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = status,
-            style = MaterialTheme.typography.titleMedium,
-            color = chromeWhite(0.55f),
-            textDecoration = if (onStatusClick != null) TextDecoration.Underline else null,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .then(
-                    if (onStatusClick != null) {
-                        Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
+        modifier = modifier
+            .additiveChrome(LocalPlayerChrome.current)
+            .then(
+                if (onStatusClick != null) {
+                    Modifier
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                        .clip(LYRICS_STATUS_PILL_SHAPE)
+                        .background(Color.White.copy(alpha = if (pressed) 0.16f else 0.10f))
+                        .border(
+                            BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+                            LYRICS_STATUS_PILL_SHAPE,
+                        )
+                        .clickable(
+                            interactionSource = interactionSource,
                             indication = null,
                         ) {
                             haptics.play(Haptic.Select)
                             onStatusClick()
                         }
-                    } else {
-                        Modifier
-                    },
-                ),
+                        .padding(start = 12.dp, end = 8.dp, top = 5.dp, bottom = 5.dp)
+                } else {
+                    Modifier
+                },
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = status,
+            style = if (onStatusClick != null) {
+                MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium)
+            } else {
+                MaterialTheme.typography.titleMedium
+            },
+            color = chromeWhite(if (onStatusClick != null) 0.82f else 0.55f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
+        if (onStatusClick != null) {
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = null,
+                tint = chromeWhite(0.68f),
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 
@@ -1688,7 +1725,7 @@ private fun LyricsSkeleton(modifier: Modifier = Modifier) {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            tween(SKELETON_PERIOD_MS, easing = LinearEasing),
+            tween(SKELETON_PERIOD_MS, easing = FastOutSlowInEasing),
         ),
         label = "sweep",
     )
@@ -1711,7 +1748,7 @@ private fun LyricsSkeleton(modifier: Modifier = Modifier) {
                             Modifier
                                 .fillMaxWidth(fraction)
                                 .height(SKELETON_BAR)
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(8.dp))
                                 // Read in the draw block, not the body: a
                                 // pageful of these would otherwise recompose on
                                 // every frame, and all any of them needs per
@@ -3071,13 +3108,24 @@ private fun LyricsUnavailableLine(trackKey: Any, modifier: Modifier = Modifier) 
 /** Stands in for [CurrentLyricLine] while a lookup is still in flight. */
 @Composable
 private fun LyricsLoadingLine(text: String, modifier: Modifier = Modifier) {
+    val pulse by rememberInfiniteTransition(label = "lyricsLoadingPulse").animateFloat(
+        initialValue = 0.40f,
+        targetValue = 0.72f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "pulseAlpha",
+    )
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
-        color = Color.White.copy(alpha = 0.55f),
+        color = Color.White,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier.padding(vertical = 4.dp),
+        modifier = modifier
+            .padding(vertical = 4.dp)
+            .graphicsLayer { alpha = pulse },
     )
 }
 

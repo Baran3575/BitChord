@@ -20,6 +20,11 @@ internal const val LYRICS_AGENT = "BitChord (https://github.com/bitchord)"
 
 val lyricsJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
+/** Minimal HTTP response wrapper for providers that distinguish 401/429 from network errors. */
+internal data class LyricsHttpResponse(val code: Int, val body: String?) {
+    val isSuccessful: Boolean get() = code in 200..299
+}
+
 private val client by lazy {
     // Derived from the shared client, so the connection pool and DNS stay
     // common — only the deadline differs.
@@ -48,6 +53,30 @@ internal fun lyricsGet(url: String): String? = runCatching {
         .build()
     client.newCall(request).execute().use { response ->
         if (response.isSuccessful) response.body?.string() else null
+    }
+}.getOrNull()
+
+/**
+ * Executes a GET with optional [extraHeaders] and returns the HTTP status code
+ * alongside the body (only read on 2xx responses), or null on transport failure.
+ */
+internal fun lyricsGetResponse(
+    url: String,
+    extraHeaders: Map<String, String> = emptyMap(),
+    authenticated: Boolean = false,
+): LyricsHttpResponse? = runCatching {
+    val builder = Request.Builder().url(url)
+        .header("User-Agent", LYRICS_AGENT)
+        .header("Accept", "application/json")
+    extraHeaders.forEach { (name, value) ->
+        if (value.isNotBlank()) builder.header(name, value)
+    }
+    val http = if (authenticated) authenticatedClient else client
+    http.newCall(builder.build()).execute().use { response ->
+        LyricsHttpResponse(
+            code = response.code,
+            body = if (response.isSuccessful) response.body?.string() else null,
+        )
     }
 }.getOrNull()
 

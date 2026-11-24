@@ -140,12 +140,46 @@ export async function bini(q: LyricsQuery, get: SharedGet, hit: BiniHit | null):
 
 // ---- BetterLyrics (BetterLyrics.kt) -----------------------------------------------------------
 
-async function betterLyricsAt(endpoint: string, q: LyricsQuery): Promise<Parsed | null> {
-  const body = await lyricsGet(urlWith(endpoint, { s: q.title, a: q.artist, d: seconds(q.durationMs), al: q.album }));
-  return body ? parseProvider(body) : null;
+const ARTIST_SPLIT = /\s*(?:,|&|\bfeat\.?\b|\bft\.?\b|\bx\b|×|·)\s*/i;
+const TRAILING_EDITION = /\s*[-–—]\s*(?:remaster(?:ed)?|single|album|radio|deluxe|explicit|clean).*$/i;
+
+function betterLyricsCandidateUrls(endpoint: string, q: LyricsQuery): string[] {
+  const title = q.title.trim();
+  const artist = q.artist.trim();
+  if (!title) return [];
+  const d = seconds(q.durationMs);
+  const al = q.album?.trim() || undefined;
+  const seen = new Set<string>();
+  const add = (params: Record<string, string | number | undefined>) => {
+    seen.add(urlWith(endpoint, params));
+  };
+  if (al && d) add({ s: title, a: artist, d, al });
+  if (d) add({ s: title, a: artist, d });
+  add({ s: title, a: artist });
+  const primaryArtist = ARTIST_SPLIT.split(artist).find((part) => part.trim())?.trim() || artist;
+  const coreTitle = title.replace(TRAILING_EDITION, '').trim() || title;
+  if (primaryArtist !== artist || coreTitle !== title) {
+    add({ s: coreTitle, a: primaryArtist });
+  }
+  return [...seen];
 }
-export const betterLyrics = (q: LyricsQuery) => betterLyricsAt('https://lyrics-api.boidu.dev/getLyrics', q);
-export const betterLyricsPortato = (q: LyricsQuery) => betterLyricsAt('https://lyrics-api.boidu.dev/qq/getLyrics', q);
+
+async function betterLyricsAt(endpoints: string[], q: LyricsQuery): Promise<Parsed | null> {
+  for (const endpoint of endpoints) {
+    for (const url of betterLyricsCandidateUrls(endpoint, q)) {
+      const body = await lyricsGet(url);
+      if (!body) continue;
+      const parsed = parseProvider(body);
+      if (parsed) return parsed;
+    }
+  }
+  return null;
+}
+
+export const betterLyrics = (q: LyricsQuery) =>
+  betterLyricsAt(['https://api.betterlyrics.org/getLyrics', 'https://lyrics-api.boidu.dev/getLyrics'], q);
+export const betterLyricsPortato = (q: LyricsQuery) =>
+  betterLyricsAt(['https://api.betterlyrics.org/qq/getLyrics', 'https://lyrics-api.boidu.dev/qq/getLyrics'], q);
 
 // ---- Unison (Unison.kt) -----------------------------------------------------------------------
 

@@ -1239,6 +1239,12 @@
     <string name="paxsenix_api_key_configured">PaxSenix API anahtarı — yapılandırıldı</string>
 
     <string name="paxsenix_api_key_missing">PaxSenix API anahtarı — isteğe bağlı, yapılandırılmadı</string>
+    <string name="betterlyrics_api_key">BetterLyrics API anahtarı</string>
+    <string name="betterlyrics_api_key_configured">BetterLyrics API anahtarı — yapılandırıldı</string>
+    <string name="betterlyrics_api_key_missing">BetterLyrics API anahtarı — isteğe bağlı, önbellekte olmayan şarkılar için</string>
+    <string name="lyrics_api_key_badge_set">Aktif</string>
+    <string name="lyrics_api_key_badge_optional">İsteğe bağlı</string>
+    <string name="lyrics_word_synced_badge">Kelime senkronlu</string>
 
 
 

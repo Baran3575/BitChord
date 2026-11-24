@@ -95,7 +95,9 @@ fun LyricsSourcesDialog(
     val savedOrder by AppSettings.lyricsSourceOrder.collectAsStateWithLifecycle()
     val prioritizeSyllableSync by AppSettings.prioritizeSyllableSync.collectAsStateWithLifecycle()
     val paxSenixApiKey by AppSettings.paxSenixApiKey.collectAsStateWithLifecycle()
+    val betterLyricsApiKey by AppSettings.betterLyricsApiKey.collectAsStateWithLifecycle()
     var showPaxSenixKeyDialog by remember { mutableStateOf(false) }
+    var showBetterLyricsKeyDialog by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(ALERT_CORNER)
 
     Box(
@@ -186,7 +188,22 @@ fun LyricsSourcesDialog(
             )
 
             AlertRule()
-            PaxSenixApiKeyRow(
+            ApiKeyRow(
+                title = stringResource(R.string.betterlyrics_api_key),
+                subtitle = stringResource(
+                    if (betterLyricsApiKey.isNotBlank()) R.string.betterlyrics_api_key_configured
+                    else R.string.betterlyrics_api_key_missing,
+                ),
+                configured = betterLyricsApiKey.isNotBlank(),
+                onClick = { showBetterLyricsKeyDialog = true },
+            )
+            AlertRule()
+            ApiKeyRow(
+                title = stringResource(R.string.paxsenix_api_key),
+                subtitle = stringResource(
+                    if (paxSenixApiKey.isNotBlank()) R.string.paxsenix_api_key_configured
+                    else R.string.paxsenix_api_key_missing,
+                ),
                 configured = paxSenixApiKey.isNotBlank(),
                 onClick = { showPaxSenixKeyDialog = true },
             )
@@ -207,42 +224,74 @@ fun LyricsSourcesDialog(
         }
     }
 
+    if (showBetterLyricsKeyDialog) {
+        ApiKeyInputDialog(
+            title = stringResource(R.string.betterlyrics_api_key),
+            initialValue = betterLyricsApiKey,
+            onSave = {
+                AppSettings.setBetterLyricsApiKey(it)
+                showBetterLyricsKeyDialog = false
+            },
+            onDismiss = { showBetterLyricsKeyDialog = false },
+        )
+    }
+
     if (showPaxSenixKeyDialog) {
-        var input by remember(paxSenixApiKey) { mutableStateOf(paxSenixApiKey) }
-        AlertDialog(
-            onDismissRequest = { showPaxSenixKeyDialog = false },
-            title = { Text(stringResource(R.string.paxsenix_api_key)) },
-            text = {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        ApiKeyInputDialog(
+            title = stringResource(R.string.paxsenix_api_key),
+            initialValue = paxSenixApiKey,
+            onSave = {
+                AppSettings.setPaxSenixApiKey(it)
+                showPaxSenixKeyDialog = false
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    AppSettings.setPaxSenixApiKey(input)
-                    showPaxSenixKeyDialog = false
-                }) { Text(stringResource(R.string.save)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPaxSenixKeyDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
+            onDismiss = { showPaxSenixKeyDialog = false },
         )
     }
 }
 
-/** The PaxSenix key: its name, and under it whether one is set. */
 @Composable
-private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
+private fun ApiKeyInputDialog(
+    title: String,
+    initialValue: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var input by remember(initialValue) { mutableStateOf(initialValue) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(input) }) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+/** Optional provider API key row with a compact status pill. */
+@Composable
+private fun ApiKeyRow(
+    title: String,
+    subtitle: String,
+    configured: Boolean,
+    onClick: () -> Unit,
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     Row(
@@ -262,19 +311,39 @@ private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.paxsenix_api_key),
+                text = title,
                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = stringResource(
-                    if (configured) R.string.paxsenix_api_key_configured
-                    else R.string.paxsenix_api_key_missing,
-                ),
+                text = subtitle,
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(
+                    if (configured) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                )
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        ) {
+            Text(
+                text = stringResource(
+                    if (configured) R.string.lyrics_api_key_badge_set
+                    else R.string.lyrics_api_key_badge_optional,
+                ),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                color = if (configured) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
             )
         }
     }
@@ -582,14 +651,38 @@ private fun ReorderableSourceList(
                                 },
                         )
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                text = source.label,
-                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                                color = MaterialTheme.colorScheme.onSurface
-                                    .copy(alpha = if (toggleable) 1f else 0.5f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = source.label,
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                        .copy(alpha = if (toggleable) 1f else 0.5f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                if (source.wordSynced) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.lyrics_word_synced_badge),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                            ),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
                             Text(
                                 text = source.detail,
                                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
