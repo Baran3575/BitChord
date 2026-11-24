@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.foundation.Canvas
+import com.music.bitchord.ui.theme.explicitBadge
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -159,11 +160,7 @@ fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
     // W800, the Bold cut in this app's family: a step up from the Semibold
     // the label's Bold draws. No tracking, which sat the letter left of centre.
-    val style = MaterialTheme.typography.labelSmall.copy(
-        fontSize = BADGE_LETTER_SIZE,
-        fontWeight = FontWeight.W800,
-        letterSpacing = 0.sp,
-    )
+    val style = MaterialTheme.typography.explicitBadge
     val letter = remember(measurer, style) { measurer.measure("E", style) }
     val density = LocalDensity.current
     val capPx = with(density) { style.fontSize.toPx() } * CAP_HEIGHT
@@ -193,6 +190,5 @@ fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
  * 0.52, measured off Apple Music's — which with SF Pro's capital height, 0.705
  * of the size, makes the tile about the 13dp it has always been.
  */
-private val BADGE_LETTER_SIZE = 9.5.sp
 private const val BADGE_CAP_SHARE = 0.52f
 private const val CAP_HEIGHT = 0.705f

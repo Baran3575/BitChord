@@ -62,6 +62,8 @@ import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarDefaults
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarScrollConnection
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.theme.miniPlayerSubtitle
+import com.music.bitchord.ui.theme.miniPlayerTitle
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.rememberPlayerSkipMotion
@@ -332,15 +334,8 @@ private fun GlassNowPlaying(
         label = "accessoryPressScale",
     )
 
-    val titleStyle = MaterialTheme.typography.titleMedium.copy(
-        fontSize = ACCESSORY_TITLE_SIZE,
-        fontWeight = ACCESSORY_TITLE_WEIGHT,
-        letterSpacing = ACCESSORY_TITLE_TRACKING,
-    )
-    val artistStyle = MaterialTheme.typography.bodyMedium.copy(
-        fontSize = ACCESSORY_ARTIST_SIZE,
-        letterSpacing = ACCESSORY_ARTIST_TRACKING,
-    )
+    val titleStyle = MaterialTheme.typography.miniPlayerTitle
+    val artistStyle = MaterialTheme.typography.miniPlayerSubtitle
     val glyphSlot = if (isInline) 32.dp else 40.dp
     val glyphSize = if (isInline) 24.dp else EXPANDED_GLYPH_SIZE
 
@@ -427,7 +422,7 @@ private fun GlassNowPlaying(
             }
             Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
             // Title and artist at both densities, as Apple Music has them, in its
-            // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
+            // small, openly spaced type (see [miniPlayerTitle]). The inline
             // row shares its width with the tab pill and the Search circle, so
             // a long line fades out at its end, as Apple's does.
             Column(Modifier.weight(1f)) {
@@ -509,24 +504,6 @@ private val INLINE_SPACING = 14.dp
  * other's centre line.
  */
 private val INLINE_LIFT = 7.dp
-
-/**
- * The accessory's type, measured off Apple's, collapsed and expanded alike:
- * 13pt over 12pt, set looser than the scale's 16 and 14 as SF Pro Text spaces
- * these sizes — the title less so than measured, tuned by eye on device: in
- * Semibold +0.4 read loose and the cut's own spacing tight.
- */
-private val ACCESSORY_TITLE_SIZE = 13.sp
-
-/**
- * W700, which in this app's family draws the Semibold cut (see SFProDisplay):
- * Apple's accessory sets its title in Semibold, and the scale's W600 — the
- * Medium cut — read thin at 13sp.
- */
-private val ACCESSORY_TITLE_WEIGHT = FontWeight.W700
-private val ACCESSORY_TITLE_TRACKING = 0.15.sp
-private val ACCESSORY_ARTIST_SIZE = 12.sp
-private val ACCESSORY_ARTIST_TRACKING = 0.35.sp
 
 /** The accessory's artwork, about Apple's 30pt at both densities, and its corner. */
 private val ACCESSORY_ART_SIZE = 30.4.dp

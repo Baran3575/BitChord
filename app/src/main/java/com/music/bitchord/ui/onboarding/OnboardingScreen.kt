@@ -80,6 +80,9 @@ import com.music.bitchord.ui.player.MESH_CYCLE_MILLIS
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.WelcomeMeshPalettes
 import com.music.bitchord.ui.player.cyclingMeshPalette
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.featureTitle
+import com.music.bitchord.ui.theme.onboardingHero
 
 /**
  * The two welcome pages: a name for Listen Together, then the YouTube sign-in.
@@ -233,8 +236,7 @@ private fun ColumnScope.NamePage(
 
     Text(
         text = stringResource(R.string.onboarding_name_prompt),
-        style = MaterialTheme.typography.titleMedium,
-        fontSize = 17.sp,
+        style = MaterialTheme.typography.alertTitle,
         color = Color.White.copy(alpha = 0.78f),
         modifier = Modifier.padding(start = 4.dp),
     )
@@ -270,9 +272,10 @@ private fun ColumnScope.ConnectPage(
     Spacer(Modifier.height(14.dp))
     Text(
         text = stringResource(R.string.onboarding_connect_body),
-        style = MaterialTheme.typography.bodyLarge,
-        fontSize = 17.sp,
-        lineHeight = 23.sp,
+        style = MaterialTheme.typography.alertTitle.copy(
+            fontWeight = FontWeight.Normal,
+            lineHeight = 23.sp,
+        ),
         color = Color.White.copy(alpha = 0.72f),
     )
 
@@ -304,11 +307,7 @@ private fun ColumnScope.ConnectPage(
 private fun Title(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.displayLarge.copy(
-            fontSize = 40.sp,
-            lineHeight = 44.sp,
-            letterSpacing = (-1.2).sp,
-        ),
+        style = MaterialTheme.typography.onboardingHero,
         color = Color.White,
     )
 }
@@ -319,9 +318,7 @@ private fun Title(text: String) {
  */
 @Composable
 private fun NameField(value: String, onValueChange: (String) -> Unit, onDone: () -> Unit) {
-    val style = MaterialTheme.typography.displayLarge.copy(
-        fontSize = 26.sp,
-        lineHeight = 30.sp,
+    val style = MaterialTheme.typography.featureTitle.copy(
         letterSpacing = (-0.6).sp,
         color = Color.White,
     )
@@ -402,9 +399,9 @@ private fun PillButton(
         }
         Text(
             text = label,
-            style = MaterialTheme.typography.titleMedium,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.W700,
+            style = MaterialTheme.typography.alertTitle.copy(
+                fontWeight = FontWeight.W700,
+            ),
             color = if (primary) Color.Black else Color.White,
             textAlign = TextAlign.Center,
             maxLines = 1,

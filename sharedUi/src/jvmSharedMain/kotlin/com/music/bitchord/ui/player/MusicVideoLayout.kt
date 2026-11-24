@@ -62,6 +62,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.ui.theme.HideSystemBars
+import com.music.bitchord.ui.theme.videoOverlayTitle
 import kotlinx.coroutines.delay
 
 /** How long the controls stay over a playing video untouched. */
@@ -156,15 +157,14 @@ internal fun FullscreenVideoPlayer(
                         Text(
                             text = song.title,
                             color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.videoOverlayTitle,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = song.artist,
                             color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -275,9 +275,10 @@ private fun VideoQualityBox(onClick: () -> Unit) {
             Text(
                 text = text,
                 color = Color.White.copy(alpha = 0.85f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.4.sp,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.4.sp,
+                ),
                 maxLines = 1,
             )
         }

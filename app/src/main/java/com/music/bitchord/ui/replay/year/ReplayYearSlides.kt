@@ -75,6 +75,7 @@ import com.music.bitchord.ui.replay.formatDay
 import com.music.bitchord.ui.replay.formatHour
 import com.music.bitchord.ui.replay.grouped
 import com.music.bitchord.ui.replay.songRows
+import com.music.bitchord.ui.theme.ReplayYearTypography
 import java.time.LocalDate
 import java.time.format.TextStyle as DateTextStyle
 import kotlin.math.PI
@@ -132,11 +133,10 @@ fun YearSlideContent(slide: YearSlide, year: ReplayYear, palette: MeshPalette) {
 
 // ── Type ────────────────────────────────────────────────────────────────────
 
-private val Setup = TextStyle(fontSize = 30.sp, lineHeight = 34.sp, letterSpacing = (-0.5).sp)
-private val Huge = TextStyle(fontWeight = FontWeight.W900, letterSpacing = (-3).sp, color = Color.White)
-private val Detail = TextStyle(fontSize = 19.sp, lineHeight = 24.sp, fontWeight = FontWeight.W600, color = Color.White)
+private val Setup get() = ReplayYearTypography.Setup
+private val Detail get() = ReplayYearTypography.Detail
 
-private fun huge(size: TextUnit) = Huge.copy(fontSize = size, lineHeight = size * 0.95f)
+private fun huge(size: TextUnit) = ReplayYearTypography.huge(size)
 
 /** A line that sets a card up, arriving word by word from the top of the card. */
 @Composable
@@ -379,7 +379,7 @@ private fun ColumnScope.Minutes(year: ReplayYear, accent: Color, confetti: List<
             HeadlineRun(" " + stringResource(R.string.replay_year_minutes_days_end), bold = false),
         ),
         start = landed + 450,
-        style = Setup.copy(fontSize = 26.sp, lineHeight = 30.sp),
+        style = ReplayYearTypography.SubSetup,
     )
 }
 
@@ -450,7 +450,7 @@ private fun YearGrid(year: ReplayYear, busiest: String, accent: Color, reveal: L
             monthLabels.forEachIndexed { m, label ->
                 Text(
                     label,
-                    style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.W700),
+                    style = ReplayYearTypography.AxisTag,
                     color = Color.White.copy(alpha = 0.6f),
                     modifier = Modifier.weight(1f).enter(clock, 200L + m * 70L, fromY = 0.dp, fromX = (-12).dp),
                 )
@@ -747,7 +747,7 @@ private fun ColumnScope.SongReveal(year: ReplayYear, accent: Color, confetti: Li
     )
     Text(
         song.artist,
-        style = Detail.copy(fontSize = 21.sp),
+        style = ReplayYearTypography.ArtistLead,
         color = accent,
         modifier = Modifier.enter(clock, reveal + 600),
     )
@@ -795,7 +795,7 @@ private fun ColumnScope.RankList(title: String, rows: List<ReplayRow>, circular:
             Column(Modifier.weight(1f)) {
                 Text(
                     row.title,
-                    style = TextStyle(fontSize = if (lead) 24.sp else 19.sp, fontWeight = FontWeight.W800),
+                    style = if (lead) ReplayYearTypography.RankRowLeadTitle else ReplayYearTypography.RankRowTitle,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -803,7 +803,7 @@ private fun ColumnScope.RankList(title: String, rows: List<ReplayRow>, circular:
                 row.subtitle?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         it,
-                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.W500),
+                        style = ReplayYearTypography.RankRowSubtitle,
                         color = Color.White.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -858,7 +858,7 @@ private fun ColumnScope.Months(year: ReplayYear, accent: Color) {
                     Spacer(Modifier.height(6.dp))
                     Text(
                         top.song.song.title,
-                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.W700),
+                        style = ReplayYearTypography.MonthSongTitle,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -963,7 +963,7 @@ private fun SummaryColumn(title: String, names: List<String>, start: Long, accen
     Column(modifier) {
         Text(
             title,
-            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.W700),
+            style = ReplayYearTypography.SummarySectionHeader,
             color = Color.White.copy(alpha = 0.7f),
             modifier = Modifier.enter(clock, start),
         )
@@ -972,13 +972,13 @@ private fun SummaryColumn(title: String, names: List<String>, start: Long, accen
             Row(Modifier.padding(vertical = 3.dp).enter(clock, start + 120L + index * 110L, fromY = 18.dp)) {
                 Text(
                     "${index + 1}",
-                    style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.W900),
+                    style = ReplayYearTypography.SummaryRankIndex,
                     color = accent,
                     modifier = Modifier.width(20.dp),
                 )
                 Text(
                     name,
-                    style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.W700),
+                    style = ReplayYearTypography.SummaryRankName,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -992,7 +992,7 @@ private fun SummaryColumn(title: String, names: List<String>, start: Long, accen
 private fun SummaryStat(label: String, value: String, start: Long, modifier: Modifier) {
     val clock = LocalSlideClock.current
     Column(modifier.enter(clock, start, fromScale = 0.7f)) {
-        Text(label, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.W700), color = Color.White.copy(alpha = 0.7f))
+        Text(label, style = ReplayYearTypography.SummarySectionHeader, color = Color.White.copy(alpha = 0.7f))
         Text(value, style = huge(30.sp).copy(letterSpacing = (-0.8).sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.ui.layout.ContentScale
+import com.music.bitchord.ui.theme.callout
 import com.music.bitchord.ui.LocalPullToRefreshEnabled
 import com.music.bitchord.ui.AppUiHost
 import com.music.bitchord.ui.AppUi
@@ -906,8 +907,7 @@ fun SignInBanner(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = stringResource(Res.string.sign_in_with_google),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontSize = 15.sp,
+                    style = MaterialTheme.typography.callout,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
                 )
@@ -985,7 +985,7 @@ fun PillTextField(
         if (value.isEmpty()) {
             Text(
                 text = placeholder,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+                style = MaterialTheme.typography.callout,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -996,8 +996,7 @@ fun PillTextField(
             onValueChange = onValueChange,
             enabled = enabled,
             singleLine = true,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 15.sp,
+            textStyle = MaterialTheme.typography.callout.copy(
                 color = MaterialTheme.colorScheme.onBackground,
             ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),

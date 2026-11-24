@@ -209,9 +209,8 @@ internal fun PartyLanding(
         Spacer(Modifier.height(20.dp))
         Text(
             text = stringResource(R.string.listen_together_landing_title),
-            style = MaterialTheme.typography.headlineMedium.copy(
+            style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 30.sp,
             ),
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,

@@ -39,6 +39,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.callout
+import com.music.bitchord.ui.theme.dialogRowDetail
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -113,10 +117,7 @@ fun AccountChannelDialog(
             ) {
                 Text(
                     text = "Listen as",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.W600,
-                    ),
+                    style = MaterialTheme.typography.alertTitle,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
@@ -131,10 +132,7 @@ fun AccountChannelDialog(
                                 "you pick here."
                     },
                     modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                    ),
+                    style = MaterialTheme.typography.alertBody,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
@@ -225,7 +223,7 @@ private fun ChannelRow(channel: AccountChannel, selected: Boolean, onClick: () -
         Column(Modifier.weight(1f)) {
             Text(
                 text = channel.name,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                style = MaterialTheme.typography.callout,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -237,7 +235,7 @@ private fun ChannelRow(channel: AccountChannel, selected: Boolean, onClick: () -
             }
             Text(
                 text = if (channel.activeOnWeb) "$subtitle · default" else subtitle,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
+                style = MaterialTheme.typography.dialogRowDetail,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

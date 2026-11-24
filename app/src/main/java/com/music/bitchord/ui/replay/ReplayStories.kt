@@ -62,6 +62,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import com.music.bitchord.ui.theme.featureTitle
+import com.music.bitchord.ui.theme.replayGenreHero
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -526,9 +528,10 @@ private fun Headline(parts: List<HeadlineRun>) {
                 ) { append(run.text) }
             }
         },
-        style = MaterialTheme.typography.displayLarge,
-        fontSize = 30.sp,
-        lineHeight = 37.sp,
+        style = MaterialTheme.typography.headlineLarge.copy(
+            lineHeight = 37.sp,
+            fontWeight = FontWeight.W800,
+        ),
         modifier = Modifier.fillMaxWidth(),
     )
 }
@@ -615,10 +618,7 @@ private fun ColumnScope.Leaderboard(
         Column(Modifier.weight(1f)) {
             Text(
                 text = lead.title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontSize = 26.sp,
-                lineHeight = 30.sp,
-                fontWeight = FontWeight.W800,
+                style = MaterialTheme.typography.featureTitle,
                 color = Color.White,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
@@ -680,10 +680,7 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
     Spacer(Modifier.weight(1f))
     Text(
         text = lead.title,
-        style = MaterialTheme.typography.displayLarge,
-        fontSize = 60.sp,
-        lineHeight = 62.sp,
-        fontWeight = FontWeight.W800,
+        style = MaterialTheme.typography.replayGenreHero,
         color = Color.White,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,

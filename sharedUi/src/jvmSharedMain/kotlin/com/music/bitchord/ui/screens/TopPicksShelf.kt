@@ -1,6 +1,8 @@
 package com.music.bitchord.ui.screens
 
 import androidx.compose.foundation.Canvas
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.compactBody
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -380,15 +382,14 @@ private fun CardCaption(text: CardText, eyebrowColor: Color, modifier: Modifier)
     ) {
         Text(
             text = text.eyebrow,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 16.sp),
+            style = MaterialTheme.typography.compactBody,
             color = eyebrowColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = text.title,
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 17.sp,
+            style = MaterialTheme.typography.alertTitle.copy(
                 lineHeight = 21.sp,
                 fontWeight = FontWeight.SemiBold,
             ),
@@ -399,7 +400,7 @@ private fun CardCaption(text: CardText, eyebrowColor: Color, modifier: Modifier)
         if (text.subtitle.isNotBlank()) {
             Text(
                 text = text.subtitle,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 16.sp),
+                style = MaterialTheme.typography.compactBody,
                 color = Color.White.copy(alpha = 0.86f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

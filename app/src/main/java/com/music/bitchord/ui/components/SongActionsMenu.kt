@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.music.bitchord.ui.player.ThinSlider
+import com.music.bitchord.ui.theme.alertTitle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -452,17 +453,19 @@ internal val LocalActionRowStyle = staticCompositionLocalOf { ActionRowStyle.She
  */
 @Composable
 private fun neutralMenuPalette(): ArtworkPalette {
-    val accent = MaterialTheme.colorScheme.primary
+    val scheme = MaterialTheme.colorScheme
     val colors = iosMenuColors()
-    return remember(accent, colors) {
+    return remember(scheme, colors) {
         ArtworkPalette(
             background = colors.fill,
             wash = colors.fill,
             elevated = colors.fill,
-            accent = accent,
+            accent = scheme.primary,
             onBackground = colors.label,
             onBackgroundVariant = colors.secondaryLabel,
             divider = colors.separator,
+            colorScheme = scheme,
+            targetColorScheme = scheme,
         )
     }
 }
@@ -712,18 +715,15 @@ private fun SleepTimerHeader(title: String, subtitle: String, onBack: () -> Unit
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 17.sp,
+                style = MaterialTheme.typography.alertTitle.copy(
                     lineHeight = 21.sp,
                     letterSpacing = (-0.3).sp,
-                    fontWeight = FontWeight.SemiBold,
                 ),
                 color = colors.label,
             )
             Text(
                 text = subtitle,
-                fontSize = 14.sp,
-                lineHeight = 17.sp,
+                style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 17.sp),
                 color = colors.secondaryLabel,
             )
         }

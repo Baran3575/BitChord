@@ -28,6 +28,10 @@ import com.music.bitchord.data.SongInfo
 import com.music.bitchord.data.SongInfoRepository
 import com.music.bitchord.data.compactCount
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.callout
+import com.music.bitchord.ui.theme.dialogRowDetail
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 
@@ -69,14 +73,14 @@ internal fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
             ) {
                 Text(
                     text = stringResource(R.string.song_info),
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.alertTitle,
                     color = onSurface,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = song.title,
                     modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                    style = MaterialTheme.typography.alertBody,
                     color = onSurface,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
@@ -85,7 +89,7 @@ internal fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
                 if (song.artist.isNotBlank()) {
                     Text(
                         text = song.artist,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                        style = MaterialTheme.typography.alertBody,
                         color = onSurface.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -128,7 +132,7 @@ internal fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
                                 Text(
                                     text = stringResource(R.string.song_info_error),
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                                    style = MaterialTheme.typography.dialogRowDetail,
                                     color = MaterialTheme.colorScheme.error,
                                 )
                             }
@@ -190,7 +194,7 @@ private fun SongInfoRow(label: String, value: String?) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+            style = MaterialTheme.typography.callout,
             color = onSurface.copy(alpha = 0.6f),
         )
         Spacer(Modifier.width(12.dp))
@@ -204,7 +208,7 @@ private fun SongInfoRow(label: String, value: String?) {
             } else {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                    style = MaterialTheme.typography.callout,
                     color = onSurface,
                     textAlign = TextAlign.End,
                 )
@@ -223,13 +227,13 @@ private fun SongInfoCreditRow(role: String, names: String) {
     ) {
         Text(
             text = role,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+            style = MaterialTheme.typography.alertBody,
             color = onSurface.copy(alpha = 0.6f),
         )
         Text(
             text = names,
             modifier = Modifier.padding(top = 2.dp),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+            style = MaterialTheme.typography.callout,
             color = onSurface,
         )
     }

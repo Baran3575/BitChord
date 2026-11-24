@@ -41,6 +41,8 @@ import com.music.bitchord.R
 import com.music.bitchord.playback.cast.CastController
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.theme.callout
+import com.music.bitchord.ui.theme.captionDetail
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -144,8 +146,7 @@ private fun CastDeviceRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = name,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 15.sp,
+                style = MaterialTheme.typography.callout.copy(
                     fontWeight = if (connected) FontWeight.W600 else FontWeight.Normal,
                 ),
                 color = Color.White,
@@ -158,7 +159,7 @@ private fun CastDeviceRow(
                         if (connecting) R.string.cast_device_connecting else R.string.cast_device_connected,
                     ),
                     modifier = Modifier.padding(top = 1.dp),
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
+                    style = MaterialTheme.typography.captionDetail,
                     color = Color.White.copy(alpha = 0.6f),
                 )
             }
@@ -196,13 +197,13 @@ private fun SearchingRow() {
         Spacer(Modifier.height(12.dp))
         Text(
             text = stringResource(R.string.cast_searching),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+            style = MaterialTheme.typography.callout,
             color = Color.White,
         )
         Text(
             text = stringResource(R.string.cast_searching_hint),
             modifier = Modifier.padding(top = 4.dp),
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp, lineHeight = 17.sp),
+            style = MaterialTheme.typography.captionDetail,
             color = Color.White.copy(alpha = 0.6f),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
@@ -223,8 +224,7 @@ private fun CastActionRow(label: String, onClick: () -> Unit) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 15.sp,
+            style = MaterialTheme.typography.callout.copy(
                 fontWeight = FontWeight.W600,
             ),
             color = Color(0xFFFF6B63),

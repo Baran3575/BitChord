@@ -324,41 +324,43 @@ private fun FeatureCard(
 ) {
     val palette = rememberArtworkPalette(item.thumbnailUrl, artPx = HEADER_ART_PX)
     val shape = RoundedCornerShape(FEATURE_CORNER)
-    Column(
-        modifier = modifier
-            .clip(shape)
-            .thumbnailBorder(shape)
-            .background(palette.wash)
-            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
-            .contextClick(onLongPress),
-    ) {
-        AsyncImage(
-            model = item.thumbnailUrl.artworkAt(HEADER_ART_PX),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        )
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = palette.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+    MaterialTheme(colorScheme = palette.colorScheme) {
+        Column(
+            modifier = modifier
+                .clip(shape)
+                .thumbnailBorder(shape)
+                .background(palette.wash)
+                .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+                .contextClick(onLongPress),
+        ) {
+            AsyncImage(
+                model = item.thumbnailUrl.artworkAt(HEADER_ART_PX),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
             )
-            Text(
-                text = localizeCardSubtitle(item.subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = palette.onBackgroundVariant,
-                // Two lines held even when the credit is short, so every card
-                // in the row stands the same height.
-                minLines = 2,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = palette.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = localizeCardSubtitle(item.subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = palette.onBackgroundVariant,
+                    // Two lines held even when the credit is short, so every card
+                    // in the row stands the same height.
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

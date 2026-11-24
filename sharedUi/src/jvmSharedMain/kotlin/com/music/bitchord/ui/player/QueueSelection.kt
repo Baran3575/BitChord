@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
+import com.music.bitchord.ui.theme.AutoSizeLabelMinFontSize
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.expandVertically
@@ -207,7 +208,7 @@ private fun RowScope.BulkActionButton(icon: ImageVector, label: String, enabled:
             style = labelStyle.copy(color = Color.White, textAlign = TextAlign.Center),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = labelStyle.fontSize),
+            autoSize = TextAutoSize.StepBased(minFontSize = AutoSizeLabelMinFontSize, maxFontSize = labelStyle.fontSize),
         )
     }
 }

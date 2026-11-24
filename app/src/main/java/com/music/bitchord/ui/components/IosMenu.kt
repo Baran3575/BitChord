@@ -3,6 +3,8 @@ package com.music.bitchord.ui.components
 import android.provider.Settings
 import com.music.bitchord.ui.player.PlayerBackHandler
 import com.music.bitchord.ui.player.additiveChrome
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.callout
 import com.music.bitchord.ui.utils.containSheetGestures
 import com.music.bitchord.ui.components.backdrop.Backdrop
 import com.music.bitchord.ui.components.backdrop.drawBackdrop
@@ -301,9 +303,7 @@ fun RowScope.IosMenuQuickAction(
         Text(
             text = label,
             color = color,
-            fontSize = 12.sp,
-            lineHeight = 15.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.labelMedium.copy(lineHeight = 15.sp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -374,8 +374,8 @@ fun IosMenuRow(
             Text(
                 text = label,
                 color = foreground.copy(alpha = foreground.alpha * alpha),
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 17.sp,
+                style = MaterialTheme.typography.alertTitle.copy(
+                    fontWeight = FontWeight.Normal,
                     lineHeight = 21.sp,
                     letterSpacing = (-0.3).sp,
                 ),
@@ -386,8 +386,7 @@ fun IosMenuRow(
                 Text(
                     text = description,
                     color = colors.secondaryLabel.copy(alpha = colors.secondaryLabel.alpha * alpha),
-                    fontSize = 14.sp,
-                    lineHeight = 17.sp,
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 17.sp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -398,7 +397,7 @@ fun IosMenuRow(
             Text(
                 text = value,
                 color = (valueColor ?: colors.secondaryLabel).let { it.copy(alpha = it.alpha * alpha) },
-                fontSize = 15.sp,
+                style = MaterialTheme.typography.callout,
                 maxLines = 1,
             )
         }

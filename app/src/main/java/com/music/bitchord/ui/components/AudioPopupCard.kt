@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.alertTitle
 import com.music.bitchord.ui.utils.containSheetGestures
 import com.music.bitchord.ui.player.LocalPlayerFrost
 import dev.chrisbanes.haze.HazeState
@@ -108,20 +110,14 @@ internal fun AudioPopupCard(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.W600,
-                    ),
+                    style = MaterialTheme.typography.alertTitle,
                     color = Color.White,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = subtitle,
                     modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                    ),
+                    style = MaterialTheme.typography.alertBody,
                     color = Color.White.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center,
                 )

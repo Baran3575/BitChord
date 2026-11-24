@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.screens
 
 import androidx.compose.animation.core.Animatable
+import com.music.bitchord.ui.theme.replayPillBadgeStyle
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -115,8 +116,7 @@ fun ReplayYearButton(badge: ReplayYearBadge, height: Dp, modifier: Modifier = Mo
     val pressed by interaction.collectIsPressedAsState()
     val press by animateFloatAsState(if (pressed) 0.96f else 1f, tween(120), label = "replay-year-press")
     val haptics = LocalHapticFeedback.current
-    val fontSize = with(LocalDensity.current) { (height * 0.5f).toSp() }
-    val style = TextStyle(fontSize = fontSize, fontWeight = FontWeight.W900, color = Color.White, lineHeight = fontSize)
+    val style = replayPillBadgeStyle(height)
 
     Row(
         modifier = modifier

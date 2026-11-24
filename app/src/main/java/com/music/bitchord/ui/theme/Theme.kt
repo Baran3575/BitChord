@@ -3,8 +3,6 @@ package com.music.bitchord.ui.theme
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -23,79 +21,54 @@ import com.music.bitchord.data.settings.AppFont
 // spots (Replay's rank badge) that want that specific red regardless of theme.
 val AccentRed = Color(0xFFFA2D48)
 
-private val DarkColors = darkColorScheme(
-    primary = Color.White,
-    onPrimary = Color.Black,
-    background = Color.Black,
-    onBackground = Color.White,
-    surface = Color(0xFF0D0D0F),
-    onSurface = Color.White,
-    surfaceVariant = Color(0xFF1C1C1E),
-    onSurfaceVariant = Color(0xFF8E8E93),
-    outline = Color(0xFF2C2C2E),
-)
+internal val DarkColors = BitChordDarkColorScheme
 
-private val LightColors = lightColorScheme(
-    primary = Color.Black,
-    onPrimary = Color.White,
-    background = Color.White,
-    onBackground = Color.Black,
-    surface = Color(0xFFF7F7F9),
-    onSurface = Color.Black,
-    surfaceVariant = Color(0xFFF2F2F7),
-    onSurfaceVariant = Color(0xFF6E6E73),
-    outline = Color(0xFFE5E5EA),
-)
+internal val LightColors = BitChordLightColorScheme
 
 /**
- * SF Pro Display, the face Apple Music itself is set in, drawn one weight
- * lighter than it is asked for.
- *
- * Measured against Apple Music's own screens, every weight here came out a
- * cut heavier than the same text there: its titles are Semibold where these
- * asked for Bold, its metadata Medium where these asked for Semibold. The
- * shift is made once, in the family, so it reaches the type scale and every
- * weight set in place alike and keeps the steps between them: Heavy draws
- * Bold, Bold draws Semibold, Semibold draws Medium, Medium draws Regular.
- * Regular stays Regular — no lighter cut is bundled, and Apple's body text is
- * Regular too. A FontWeight in this app therefore names the step it sits at in
- * the scale, not the cut it draws.
- *
- * Compose synthesises nothing, so a weight outside these falls back to the
- * nearest one listed.
+ * SF Pro Display, the face Apple Music itself is set in, calibrated so body text
+ * stays Regular while `W500` (`FontWeight.Medium`) renders a genuine Medium cut
+ * instead of collapsing onto `W400` Regular, and heavy display titles step one
+ * cut lighter than Legacy (`W700` -> Semibold, `W800` -> Bold, `W900` -> Heavy).
  */
 val SFProDisplay = FontFamily(
     Font(R.font.sf_pro_display_regular, FontWeight.W400),
-    Font(R.font.sf_pro_display_regular, FontWeight.W500),
+    Font(R.font.sf_pro_display_medium, FontWeight.W500),
     Font(R.font.sf_pro_display_medium, FontWeight.W600),
     Font(R.font.sf_pro_display_semibold, FontWeight.W700),
     Font(R.font.sf_pro_display_bold, FontWeight.W800),
+    Font(R.font.sf_pro_display_heavy, FontWeight.W900),
 )
 
 /*
- * Letter spacing measured off Apple Music's own screens: the spacing the
- * bundled Display cut needs, at the weight it draws, to set a line to the
- * width Apple sets it. Apple sets text under 20pt in SF Pro Text, which is
- * spaced looser than Display, so the small sizes open up — about +0.25 to
- * +0.4 at 12 to 14 — and the spacing closes as the size grows, to just under
- * nothing for semibold titles at 18 to 24. The large titles had nothing to
- * measure against and follow the same trend.
+ * Complete 15-style Material 3 Typography scale measured off Apple Music's
+ * screens, with explicit fontSize, fontWeight, lineHeight, and letterSpacing
+ * on every token. Small sizes under 20sp open up tracking to match SF Pro Text
+ * metrics, while `titleSmall` and `labelLarge` use `FontWeight.W500` (Medium)
+ * with calibrated line heights so shelf eyebrows, search section headers, and
+ * dialog/queue actions never collapse to 14sp Regular.
  */
-private val BitChordTypography = Typography(
-    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.5).sp),
-    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = (-0.4).sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = (-0.25).sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = (-0.2).sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = 0.05.sp),
-    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, letterSpacing = 0.2.sp),
-    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, letterSpacing = 0.3.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp, letterSpacing = 0.25.sp),
-    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, letterSpacing = 0.3.sp),
+internal val BitChordTypography = Typography(
+    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.5).sp),
+    displayMedium = TextStyle(fontWeight = FontWeight.W800, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.35).sp),
+    displaySmall = TextStyle(fontWeight = FontWeight.W700, fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = (-0.3).sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = (-0.25).sp),
+    headlineSmall = TextStyle(fontWeight = FontWeight.W700, fontSize = 18.sp, lineHeight = 23.sp, letterSpacing = (-0.2).sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, lineHeight = 21.sp, letterSpacing = 0.05.sp),
+    titleSmall = TextStyle(fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 19.sp, letterSpacing = 0.15.sp),
+    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = 0.2.sp),
+    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, lineHeight = 19.sp, letterSpacing = 0.3.sp),
+    bodySmall = TextStyle(fontWeight = FontWeight.W400, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.3.sp),
+    labelLarge = TextStyle(fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.15.sp),
+    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.25.sp),
+    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.3.sp),
 ).withFamily(SFProDisplay)
 
 /**
- * SF Pro Display as the app first shipped it, before [SFProDisplay] moved every
- * weight a cut lighter: each weight draws its own cut, Heavy included. Kept for
+ * SF Pro Display as the app first shipped it, before [SFProDisplay] moved upper
+ * weights a cut lighter: each weight draws its own cut, Heavy included. Kept for
  * [AppFont.LEGACY].
  */
 val SFProDisplayLegacy = FontFamily(
@@ -104,19 +77,26 @@ val SFProDisplayLegacy = FontFamily(
     Font(R.font.sf_pro_display_semibold, FontWeight.W600),
     Font(R.font.sf_pro_display_bold, FontWeight.W700),
     Font(R.font.sf_pro_display_heavy, FontWeight.W800),
+    Font(R.font.sf_pro_display_heavy, FontWeight.W900),
 )
 
-// Heavy, tight typography — the original scale [AppFont.LEGACY] restores.
-private val LegacyTypography = Typography(
-    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.8).sp),
-    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = (-0.7).sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = (-0.4).sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = (-0.3).sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = (-0.2).sp),
-    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp),
-    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp),
-    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp),
+// Heavy, tight 15-style typography — the original scale [AppFont.LEGACY] restores.
+internal val LegacyTypography = Typography(
+    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.8).sp),
+    displayMedium = TextStyle(fontWeight = FontWeight.W800, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp),
+    displaySmall = TextStyle(fontWeight = FontWeight.W700, fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = (-0.45).sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.7).sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = (-0.4).sp),
+    headlineSmall = TextStyle(fontWeight = FontWeight.W700, fontSize = 18.sp, lineHeight = 23.sp, letterSpacing = (-0.3).sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.3).sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, lineHeight = 21.sp, letterSpacing = (-0.2).sp),
+    titleSmall = TextStyle(fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 19.sp, letterSpacing = (-0.1).sp),
+    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = 0.sp),
+    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, lineHeight = 19.sp, letterSpacing = 0.sp),
+    bodySmall = TextStyle(fontWeight = FontWeight.W400, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.1.sp),
+    labelLarge = TextStyle(fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.sp),
+    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.sp),
+    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.sp),
 ).withFamily(SFProDisplayLegacy)
 
 /** Applies [family] to every style in the scale, so nothing is left on Roboto. */

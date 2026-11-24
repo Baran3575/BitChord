@@ -1,6 +1,9 @@
 package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.icons.SfIcons
+import com.music.bitchord.ui.theme.DiscordPresenceColors
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.callout
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -455,9 +458,9 @@ private fun DiscordAccountCard(
                         .clip(CircleShape)
                         .background(
                             when (status) {
-                                DiscordPresenceStatus.IDLE -> MaterialTheme.colorScheme.tertiary
-                                DiscordPresenceStatus.DND -> MaterialTheme.colorScheme.error
-                                DiscordPresenceStatus.ONLINE -> MaterialTheme.colorScheme.primary
+                                DiscordPresenceStatus.IDLE -> DiscordPresenceColors.Idle
+                                DiscordPresenceStatus.DND -> DiscordPresenceColors.DoNotDisturb
+                                DiscordPresenceStatus.ONLINE -> DiscordPresenceColors.Online
                             },
                         ),
                 )
@@ -589,7 +592,7 @@ private fun RichPresencePreview(
                 // point of the "Lead with the song" switch.
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                    style = MaterialTheme.typography.callout,
                     fontWeight = if (useDetails) FontWeight.W700 else FontWeight.W400,
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
@@ -597,7 +600,7 @@ private fun RichPresencePreview(
                 )
                 Text(
                     text = artist,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (useDetails) FontWeight.W400 else FontWeight.W700,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -606,7 +609,7 @@ private fun RichPresencePreview(
                 audioQuality?.let {
                     Text(
                         text = it,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                        style = MaterialTheme.typography.alertBody,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -664,7 +667,7 @@ private fun PresenceButton(label: String, enabled: Boolean, onClick: () -> Unit)
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+            style = MaterialTheme.typography.alertBody,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = if (enabled) 1f else 0.5f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
