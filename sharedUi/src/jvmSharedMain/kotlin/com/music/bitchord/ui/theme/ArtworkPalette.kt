@@ -1,9 +1,11 @@
 package com.music.bitchord.ui.theme
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -27,7 +29,11 @@ import coil3.request.SuccessResult
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.player.PlayerPlatform
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -67,6 +73,19 @@ data class ArtworkPalette(
     val onBackground: Color,
     val onBackgroundVariant: Color,
     val divider: Color,
+    /**
+     * Complete 36-role contrast-clamped Material 3 [ColorScheme] harmonized
+     * with the artwork's dominant, vibrant, and edge swatches (or neutral
+     * monochrome fallback when saturation is below [CHROMATIC_SATURATION_THRESHOLD]).
+     * Cross-fades smoothly unless `reduceAnimation` is enabled or cached up front.
+     */
+    val colorScheme: ColorScheme = BitChordDarkColorScheme,
+    /**
+     * Discrete settled target [ColorScheme] without per-frame interpolation ticks,
+     * used on root `HazeSource` / `LayerBackdrop` hosts so `LocalColorScheme`
+     * (`staticCompositionLocalOf`) updates at most once per track change.
+     */
+    val targetColorScheme: ColorScheme = colorScheme,
 )
 
 /**
@@ -108,27 +127,65 @@ fun rememberArtworkPalette(
     // Always asked, so the composable call is unconditional; handed nothing to
     // read when the colours are already in hand.
     val decoded = rememberArtworkSeed(if (keyColors == null) imageUrl else null, artPx)
-    val seed = keyColors?.toSeed() ?: decoded
+    val rawSeed = keyColors?.toSeed() ?: decoded
+    // Hold the outgoing sleeve's seed while an incoming non-null artwork URL is
+    // still decoding so track switches glide directly from Track A to Track B
+    // instead of flashing neutral monochrome mid-switch.
+    var lastSeed by remember { mutableStateOf<Seed?>(null) }
+    if (rawSeed != null) {
+        lastSeed = rawSeed
+    } else if (imageUrl == null && keyColors == null) {
+        lastSeed = null
+    }
+    val seed = if (imageUrl == null && keyColors == null) null else (rawSeed ?: lastSeed)
     // Whether the colours were there from the first frame. If they were, there
     // is nothing to crossfade *from* and animating would only put a delay in
     // front of a surface that could already be right.
     val knownUpFront = remember(imageUrl) { decoded != null }
 
-    val target = seed?.toPalette(dark) ?: ArtworkPalette(
-        background = scheme.background,
-        wash = scheme.background,
-        elevated = scheme.surfaceVariant,
-        accent = scheme.primary,
-        onBackground = scheme.onBackground,
-        onBackgroundVariant = scheme.onSurfaceVariant,
-        divider = scheme.outline,
-    )
+    val fallbackScheme = if (dark) BitChordDarkColorScheme else BitChordLightColorScheme
+    val target = remember(seed, dark, scheme, fallbackScheme) {
+        seed?.toPalette(dark) ?: ArtworkPalette(
+            background = scheme.background,
+            wash = scheme.background,
+            elevated = scheme.surfaceVariant,
+            accent = scheme.primary,
+            onBackground = scheme.onBackground,
+            onBackgroundVariant = scheme.onSurfaceVariant,
+            divider = scheme.outline,
+            colorScheme = fallbackScheme,
+            targetColorScheme = fallbackScheme,
+        )
+    }
 
     val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront) {
         snap()
     } else {
         tween(TINT_FADE_MS)
     }
+
+    var startScheme by remember { mutableStateOf(target.colorScheme) }
+    var settledScheme by remember { mutableStateOf(target.colorScheme) }
+    val schemeProgress = remember { Animatable(1f) }
+    LaunchedEffect(target.colorScheme, reduceAnimation, knownUpFront) {
+        if (target.colorScheme == settledScheme && schemeProgress.value == 1f) return@LaunchedEffect
+        if (reduceAnimation || knownUpFront) {
+            startScheme = target.colorScheme
+            settledScheme = target.colorScheme
+            schemeProgress.snapTo(1f)
+        } else {
+            startScheme = lerpColorScheme(startScheme, settledScheme, schemeProgress.value)
+            settledScheme = target.colorScheme
+            schemeProgress.snapTo(0f)
+            schemeProgress.animateTo(1f, tween(TINT_FADE_MS))
+        }
+    }
+    val animatedScheme = if (reduceAnimation || knownUpFront || schemeProgress.value >= 1f) {
+        target.colorScheme
+    } else {
+        lerpColorScheme(startScheme, settledScheme, schemeProgress.value)
+    }
+
     return ArtworkPalette(
         background = animateColorAsState(target.background, spec, label = "tintBackground").value,
         wash = animateColorAsState(target.wash, spec, label = "tintWash").value,
@@ -139,6 +196,8 @@ fun rememberArtworkPalette(
             target.onBackgroundVariant, spec, label = "tintOnVariant",
         ).value,
         divider = animateColorAsState(target.divider, spec, label = "tintDivider").value,
+        colorScheme = animatedScheme,
+        targetColorScheme = target.colorScheme,
     )
 }
 
@@ -155,19 +214,20 @@ fun rememberArtworkTopBandLuminance(
 @Composable
 private fun rememberArtworkSeed(imageUrl: String?, artPx: Int): Seed? {
     val context = LocalPlatformContext.current
-    var seed by remember(imageUrl) { mutableStateOf(imageUrl?.let(seedCache::get)) }
+    var seed by remember(imageUrl) { mutableStateOf(imageUrl?.let(::cachedArtworkSeed)) }
 
     LaunchedEffect(imageUrl, artPx) {
         if (imageUrl == null || seed != null) return@LaunchedEffect
-        val request = ImageRequest.Builder(context)
-            .data(imageUrl.artworkAt(artPx))
-            .size(PALETTE_PX)
-            .forPixelAccess()
-            .build()
-        val result = SingletonImageLoader.get(context).execute(request)
-        val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return@LaunchedEffect
-        val found = withContext(Dispatchers.Default) { seedOf(bitmap) } ?: return@LaunchedEffect
-        seedCache[imageUrl] = found
+        val found = loadOrReuseArtworkSeed(imageUrl) {
+            val request = ImageRequest.Builder(context)
+                .data(imageUrl.artworkAt(artPx))
+                .size(PALETTE_PX)
+                .forPixelAccess()
+                .build()
+            val result = SingletonImageLoader.get(context).execute(request)
+            val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return@loadOrReuseArtworkSeed null
+            withContext(Dispatchers.Default) { seedOf(bitmap) }
+        } ?: return@LaunchedEffect
         seed = found
     }
     return seed
@@ -177,16 +237,50 @@ private fun rememberArtworkSeed(imageUrl: String?, artPx: Int): Seed? {
  * Colours already read, keyed by artwork URL.
  *
  * Reading them again costs a decode and a quantise for an answer that cannot
- * have changed — the artwork at a URL is the artwork at that URL. Access is
- * from composition and from the resumption of [rememberArtworkPalette]'s
- * effect, both on the main thread, so it needs no locking of its own.
+ * have changed — the artwork at a URL is the artwork at that URL. Guarded by
+ * [seedCacheLock] together with [inFlightSeeds] so concurrent composables
+ * mounting on the same frame share one decode and reuse the 128-entry LRU cache.
  */
+private val seedCacheLock = Any()
+
 private val seedCache = object : LinkedHashMap<String, Seed>(0, 0.75f, true) {
     override fun removeEldestEntry(eldest: Map.Entry<String, Seed>) = size > SEED_CACHE_ENTRIES
 }
 
+private val inFlightSeeds = HashMap<String, Deferred<Seed?>>()
+
+private val seedDecodeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+internal fun cachedArtworkSeed(imageUrl: String): Seed? =
+    synchronized(seedCacheLock) { seedCache[imageUrl] }
+
+internal suspend fun loadOrReuseArtworkSeed(
+    imageUrl: String,
+    loader: suspend () -> Seed?,
+): Seed? {
+    val deferred: Deferred<Seed?> = synchronized(seedCacheLock) {
+        seedCache[imageUrl]?.let { return it }
+        inFlightSeeds[imageUrl] ?: seedDecodeScope.async {
+            try {
+                val decoded = loader()
+                if (decoded != null) {
+                    synchronized(seedCacheLock) {
+                        seedCache[imageUrl] = decoded
+                    }
+                }
+                decoded
+            } finally {
+                synchronized(seedCacheLock) {
+                    inFlightSeeds.remove(imageUrl)
+                }
+            }
+        }.also { inFlightSeeds[imageUrl] = it }
+    }
+    return deferred.await()
+}
+
 /** Deep enough to cover a session's browsing without holding a screenful of colours. */
-private const val SEED_CACHE_ENTRIES = 128
+internal const val SEED_CACHE_ENTRIES = 128
 
 private const val PALETTE_PX = 128
 
@@ -197,7 +291,7 @@ private const val TINT_FADE_MS = 260
  * The raw artwork colours: what the page is mostly made of, its brightest
  * note, and what its bottom edge averages out to.
  */
-private data class Seed(
+internal data class Seed(
     val dominant: Color,
     val vibrant: Color,
     val edge: Color,
@@ -358,6 +452,7 @@ private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {
             lightness = { 0.80f },
         ),
         divider = Color.White.copy(alpha = 0.12f),
+        colorScheme = deriveArtworkColorScheme(dominant = dominant, vibrant = vibrant, edge = edge, dark = true),
     )
 } else {
     ArtworkPalette(
@@ -384,7 +479,545 @@ private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {
             lightness = { 0.34f },
         ),
         divider = Color.Black.copy(alpha = 0.10f),
+        colorScheme = deriveArtworkColorScheme(dominant = dominant, vibrant = vibrant, edge = edge, dark = false),
     )
+}
+
+/**
+ * Derives a complete 36-role contrast-clamped Material 3 [ColorScheme] from
+ * [dominant], [vibrant], and [edge] artwork swatches.
+ *
+ * When both [dominant] and [vibrant] fall below [CHROMATIC_SATURATION_THRESHOLD],
+ * returns [BitChordDarkColorScheme] or [BitChordLightColorScheme] unchanged so
+ * monochrome sleeves stay strictly neutral without inventing warm/red/brown tints.
+ */
+internal fun deriveArtworkColorScheme(
+    dominant: Color,
+    vibrant: Color,
+    edge: Color,
+    dark: Boolean,
+): ColorScheme {
+    val dHsl = FloatArray(3).also { ColorUtils.colorToHSL(dominant.toArgb(), it) }
+    val vHsl = FloatArray(3).also { ColorUtils.colorToHSL(vibrant.toArgb(), it) }
+    val eHsl = FloatArray(3).also { ColorUtils.colorToHSL(edge.toArgb(), it) }
+
+    val maxChroma = maxOf(dHsl[1], vHsl[1])
+    if (maxChroma < CHROMATIC_SATURATION_THRESHOLD) {
+        return if (dark) BitChordDarkColorScheme else BitChordLightColorScheme
+    }
+
+    val primarySeed = if (vHsl[1] >= CHROMATIC_SATURATION_THRESHOLD) vibrant else dominant
+    val secondarySeed = if (dHsl[1] >= CHROMATIC_SATURATION_THRESHOLD) dominant else primarySeed
+    val tertiarySeed = when {
+        eHsl[1] >= CHROMATIC_SATURATION_THRESHOLD -> edge
+        dHsl[1] >= CHROMATIC_SATURATION_THRESHOLD -> dominant
+        else -> primarySeed
+    }
+    val surfaceSeed = if (dHsl[1] >= CHROMATIC_SATURATION_THRESHOLD) dominant else primarySeed
+    val containerSeed = if (eHsl[1] >= CHROMATIC_SATURATION_THRESHOLD) edge else surfaceSeed
+
+    return if (dark) {
+        val background = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.16f, maximum = 0.48f) },
+            lightness = { 0.07f },
+        )
+        val surfaceLowest = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.42f) },
+            lightness = { 0.05f },
+        )
+        val surfaceDim = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.16f, maximum = 0.46f) },
+            lightness = { 0.08f },
+        )
+        val surface = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.18f, maximum = 0.52f) },
+            lightness = { 0.10f },
+        )
+        val surfaceLow = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.18f, maximum = 0.50f) },
+            lightness = { 0.12f },
+        )
+        val surfaceContainer = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.18f, maximum = 0.52f) },
+            lightness = { 0.14f },
+        )
+        val surfaceHigh = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.20f, maximum = 0.54f) },
+            lightness = { 0.17f },
+        )
+        val surfaceHighest = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.20f, maximum = 0.54f) },
+            lightness = { 0.20f },
+        )
+        val surfaceVariant = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.20f, maximum = 0.54f) },
+            lightness = { 0.18f },
+        )
+        val surfaceBright = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.18f, maximum = 0.48f) },
+            lightness = { 0.23f },
+        )
+        val allDarkSurfaces = listOf(
+            background,
+            surfaceLowest,
+            surfaceDim,
+            surface,
+            surfaceLow,
+            surfaceContainer,
+            surfaceHigh,
+            surfaceHighest,
+            surfaceVariant,
+        )
+
+        val primary = clampColorContrast(
+            foreground = primarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.52f, maximum = 0.92f) },
+                lightness = { it.coerceIn(0.68f, 0.80f) },
+            ),
+            backgrounds = allDarkSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val onPrimary = clampColorContrast(
+            foreground = primarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.18f, maximum = 0.45f) },
+                lightness = { 0.08f },
+            ),
+            backgrounds = listOf(primary),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val primaryContainer = primarySeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.28f, maximum = 0.62f) },
+            lightness = { 0.24f },
+        )
+        val onPrimaryContainer = clampColorContrast(
+            foreground = primarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.35f, maximum = 0.85f) },
+                lightness = { 0.90f },
+            ),
+            backgrounds = listOf(primaryContainer),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+
+        val secondary = clampColorContrast(
+            foreground = secondarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.24f, maximum = 0.58f) },
+                lightness = { 0.76f },
+            ),
+            backgrounds = allDarkSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val onSecondary = clampColorContrast(
+            foreground = secondarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.16f, maximum = 0.40f) },
+                lightness = { 0.09f },
+            ),
+            backgrounds = listOf(secondary),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val secondaryContainer = secondarySeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.22f, maximum = 0.52f) },
+            lightness = { 0.22f },
+        )
+        val onSecondaryContainer = clampColorContrast(
+            foreground = secondarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.24f, maximum = 0.65f) },
+                lightness = { 0.90f },
+            ),
+            backgrounds = listOf(secondaryContainer),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+
+        val tertiary = clampColorContrast(
+            foreground = tertiarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.28f, maximum = 0.68f) },
+                lightness = { 0.76f },
+            ),
+            backgrounds = allDarkSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val onTertiary = clampColorContrast(
+            foreground = tertiarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.16f, maximum = 0.40f) },
+                lightness = { 0.09f },
+            ),
+            backgrounds = listOf(tertiary),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val tertiaryContainer = tertiarySeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.24f, maximum = 0.56f) },
+            lightness = { 0.23f },
+        )
+        val onTertiaryContainer = clampColorContrast(
+            foreground = tertiarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.28f, maximum = 0.70f) },
+                lightness = { 0.90f },
+            ),
+            backgrounds = listOf(tertiaryContainer),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+
+        val onBackground = clampColorContrast(
+            foreground = Color.White,
+            backgrounds = listOf(background),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val onSurface = clampColorContrast(
+            foreground = Color.White,
+            backgrounds = allDarkSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val onSurfaceVariant = clampColorContrast(
+            foreground = surfaceSeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.16f, maximum = 0.42f) },
+                lightness = { 0.78f },
+            ),
+            backgrounds = allDarkSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val inverseSurface = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.10f, maximum = 0.28f) },
+            lightness = { 0.93f },
+        )
+        val inverseOnSurface = clampColorContrast(
+            foreground = surfaceSeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.34f) },
+                lightness = { 0.10f },
+            ),
+            backgrounds = listOf(inverseSurface),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val inversePrimary = clampColorContrast(
+            foreground = primarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.48f, maximum = 0.88f) },
+                lightness = { 0.34f },
+            ),
+            backgrounds = listOf(inverseSurface),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val error = clampColorContrast(
+            foreground = BitChordDarkColorScheme.error,
+            backgrounds = allDarkSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val onError = clampColorContrast(
+            foreground = BitChordDarkColorScheme.onError,
+            backgrounds = listOf(error),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val outline = clampColorContrast(
+            foreground = surfaceSeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.36f) },
+                lightness = { 0.46f },
+            ),
+            backgrounds = listOf(background, surface, surfaceContainer),
+            minContrast = WCAG_AA_UI_CONTRAST,
+            preferLighter = true,
+        )
+        val outlineVariant = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.36f) },
+            lightness = { 0.26f },
+        )
+
+        ColorScheme(
+            primary = primary,
+            onPrimary = onPrimary,
+            primaryContainer = primaryContainer,
+            onPrimaryContainer = onPrimaryContainer,
+            inversePrimary = inversePrimary,
+            secondary = secondary,
+            onSecondary = onSecondary,
+            secondaryContainer = secondaryContainer,
+            onSecondaryContainer = onSecondaryContainer,
+            tertiary = tertiary,
+            onTertiary = onTertiary,
+            tertiaryContainer = tertiaryContainer,
+            onTertiaryContainer = onTertiaryContainer,
+            background = background,
+            onBackground = onBackground,
+            surface = surface,
+            onSurface = onSurface,
+            surfaceVariant = surfaceVariant,
+            onSurfaceVariant = onSurfaceVariant,
+            surfaceTint = primary,
+            inverseSurface = inverseSurface,
+            inverseOnSurface = inverseOnSurface,
+            error = error,
+            onError = onError,
+            errorContainer = BitChordDarkColorScheme.errorContainer,
+            onErrorContainer = BitChordDarkColorScheme.onErrorContainer,
+            outline = outline,
+            outlineVariant = outlineVariant,
+            scrim = Color.Black,
+            surfaceBright = surfaceBright,
+            surfaceDim = surfaceDim,
+            surfaceContainer = surfaceContainer,
+            surfaceContainerHigh = surfaceHigh,
+            surfaceContainerHighest = surfaceHighest,
+            surfaceContainerLow = surfaceLow,
+            surfaceContainerLowest = surfaceLowest,
+        )
+    } else {
+        val background = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.12f, maximum = 0.42f) },
+            lightness = { 0.96f },
+        )
+        val surfaceLowest = Color.White
+        val surfaceBright = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.10f, maximum = 0.36f) },
+            lightness = { 0.98f },
+        )
+        val surface = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.12f, maximum = 0.42f) },
+            lightness = { 0.94f },
+        )
+        val surfaceLow = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.12f, maximum = 0.40f) },
+            lightness = { 0.93f },
+        )
+        val surfaceContainer = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.44f) },
+            lightness = { 0.90f },
+        )
+        val surfaceHigh = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.46f) },
+            lightness = { 0.87f },
+        )
+        val surfaceHighest = containerSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.16f, maximum = 0.48f) },
+            lightness = { 0.84f },
+        )
+        val surfaceVariant = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.46f) },
+            lightness = { 0.88f },
+        )
+        val surfaceDim = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.44f) },
+            lightness = { 0.83f },
+        )
+        val allLightSurfaces = listOf(
+            background,
+            surfaceLowest,
+            surfaceBright,
+            surfaceDim,
+            surface,
+            surfaceLow,
+            surfaceContainer,
+            surfaceHigh,
+            surfaceHighest,
+            surfaceVariant,
+        )
+
+        val primary = clampColorContrast(
+            foreground = primarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.52f, maximum = 0.92f) },
+                lightness = { it.coerceIn(0.26f, 0.38f) },
+            ),
+            backgrounds = allLightSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val onPrimary = clampColorContrast(
+            foreground = Color.White,
+            backgrounds = listOf(primary),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val primaryContainer = primarySeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.24f, maximum = 0.60f) },
+            lightness = { 0.84f },
+        )
+        val onPrimaryContainer = clampColorContrast(
+            foreground = primarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.35f, maximum = 0.80f) },
+                lightness = { 0.16f },
+            ),
+            backgrounds = listOf(primaryContainer),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+
+        val secondary = clampColorContrast(
+            foreground = secondarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.22f, maximum = 0.55f) },
+                lightness = { 0.30f },
+            ),
+            backgrounds = allLightSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val onSecondary = clampColorContrast(
+            foreground = Color.White,
+            backgrounds = listOf(secondary),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val secondaryContainer = secondarySeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.20f, maximum = 0.50f) },
+            lightness = { 0.85f },
+        )
+        val onSecondaryContainer = clampColorContrast(
+            foreground = secondarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.24f, maximum = 0.60f) },
+                lightness = { 0.16f },
+            ),
+            backgrounds = listOf(secondaryContainer),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+
+        val tertiary = clampColorContrast(
+            foreground = tertiarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.26f, maximum = 0.64f) },
+                lightness = { 0.30f },
+            ),
+            backgrounds = allLightSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val onTertiary = clampColorContrast(
+            foreground = Color.White,
+            backgrounds = listOf(tertiary),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val tertiaryContainer = tertiarySeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.22f, maximum = 0.54f) },
+            lightness = { 0.85f },
+        )
+        val onTertiaryContainer = clampColorContrast(
+            foreground = tertiarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.28f, maximum = 0.66f) },
+                lightness = { 0.16f },
+            ),
+            backgrounds = listOf(tertiaryContainer),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+
+        val onBackground = clampColorContrast(
+            foreground = Color.Black,
+            backgrounds = listOf(background),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val onSurface = clampColorContrast(
+            foreground = Color.Black,
+            backgrounds = allLightSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val onSurfaceVariant = clampColorContrast(
+            foreground = surfaceSeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.18f, maximum = 0.48f) },
+                lightness = { 0.28f },
+            ),
+            backgrounds = allLightSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val inverseSurface = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.34f) },
+            lightness = { 0.14f },
+        )
+        val inverseOnSurface = clampColorContrast(
+            foreground = surfaceSeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.12f, maximum = 0.30f) },
+                lightness = { 0.94f },
+            ),
+            backgrounds = listOf(inverseSurface),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val inversePrimary = clampColorContrast(
+            foreground = primarySeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.50f, maximum = 0.90f) },
+                lightness = { 0.74f },
+            ),
+            backgrounds = listOf(inverseSurface),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val error = clampColorContrast(
+            foreground = BitChordLightColorScheme.error,
+            backgrounds = allLightSurfaces,
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = false,
+        )
+        val onError = clampColorContrast(
+            foreground = BitChordLightColorScheme.onError,
+            backgrounds = listOf(error),
+            minContrast = WCAG_AA_TEXT_CONTRAST,
+            preferLighter = true,
+        )
+        val outline = clampColorContrast(
+            foreground = surfaceSeed.withHsl(
+                saturation = { adaptedArtworkSaturation(it, minimum = 0.14f, maximum = 0.38f) },
+                lightness = { 0.45f },
+            ),
+            backgrounds = listOf(background, surface, surfaceContainer),
+            minContrast = WCAG_AA_UI_CONTRAST,
+            preferLighter = false,
+        )
+        val outlineVariant = surfaceSeed.withHsl(
+            saturation = { adaptedArtworkSaturation(it, minimum = 0.12f, maximum = 0.36f) },
+            lightness = { 0.78f },
+        )
+
+        ColorScheme(
+            primary = primary,
+            onPrimary = onPrimary,
+            primaryContainer = primaryContainer,
+            onPrimaryContainer = onPrimaryContainer,
+            inversePrimary = inversePrimary,
+            secondary = secondary,
+            onSecondary = onSecondary,
+            secondaryContainer = secondaryContainer,
+            onSecondaryContainer = onSecondaryContainer,
+            tertiary = tertiary,
+            onTertiary = onTertiary,
+            tertiaryContainer = tertiaryContainer,
+            onTertiaryContainer = onTertiaryContainer,
+            background = background,
+            onBackground = onBackground,
+            surface = surface,
+            onSurface = onSurface,
+            surfaceVariant = surfaceVariant,
+            onSurfaceVariant = onSurfaceVariant,
+            surfaceTint = primary,
+            inverseSurface = inverseSurface,
+            inverseOnSurface = inverseOnSurface,
+            error = error,
+            onError = onError,
+            errorContainer = BitChordLightColorScheme.errorContainer,
+            onErrorContainer = BitChordLightColorScheme.onErrorContainer,
+            outline = outline,
+            outlineVariant = outlineVariant,
+            scrim = Color.Black,
+            surfaceBright = surfaceBright,
+            surfaceDim = surfaceDim,
+            surfaceContainer = surfaceContainer,
+            surfaceContainerHigh = surfaceHigh,
+            surfaceContainerHighest = surfaceHighest,
+            surfaceContainerLow = surfaceLow,
+            surfaceContainerLowest = surfaceLowest,
+        )
+    }
 }
 
 /**

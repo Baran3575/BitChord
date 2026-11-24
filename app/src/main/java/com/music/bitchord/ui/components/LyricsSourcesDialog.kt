@@ -64,6 +64,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.player.edgeScrollSpeed
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.callout
+import com.music.bitchord.ui.theme.dialogRowDetail
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -141,20 +145,14 @@ fun LyricsSourcesDialog(
             ) {
                 Text(
                     text = stringResource(R.string.lyrics_sources),
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.W600,
-                    ),
+                    style = MaterialTheme.typography.alertTitle,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(R.string.lyrics_sources_order),
                     modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                    ),
+                    style = MaterialTheme.typography.alertBody,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
@@ -263,7 +261,7 @@ private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(
                 text = stringResource(R.string.paxsenix_api_key),
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                style = MaterialTheme.typography.callout,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
@@ -271,7 +269,7 @@ private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
                     if (configured) R.string.paxsenix_api_key_configured
                     else R.string.paxsenix_api_key_missing,
                 ),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                style = MaterialTheme.typography.dialogRowDetail,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -309,12 +307,12 @@ private fun SyllableSyncToggle(checked: Boolean, onToggle: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(
                 text = stringResource(R.string.prioritize_syllable_lyrics),
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                style = MaterialTheme.typography.callout,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = stringResource(R.string.prioritize_syllable_lyrics_subtitle),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                style = MaterialTheme.typography.dialogRowDetail,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
             )
         }
@@ -584,7 +582,7 @@ private fun ReorderableSourceList(
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = source.label,
-                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                                style = MaterialTheme.typography.callout,
                                 color = MaterialTheme.colorScheme.onSurface
                                     .copy(alpha = if (toggleable) 1f else 0.5f),
                                 maxLines = 1,
@@ -592,7 +590,7 @@ private fun ReorderableSourceList(
                             )
                             Text(
                                 text = source.detail,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                                style = MaterialTheme.typography.dialogRowDetail,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,

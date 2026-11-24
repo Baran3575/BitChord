@@ -1,6 +1,12 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.AnimatedContent
+import com.music.bitchord.ui.theme.lyricBackingVoice
+import com.music.bitchord.ui.theme.lyricSubBackingVoice
+import com.music.bitchord.ui.theme.lyricSubVoice
+import com.music.bitchord.ui.theme.lyricSyncedLead
+import com.music.bitchord.ui.theme.lyricUnsyncedLead
+import com.music.bitchord.ui.theme.microLabel
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -273,8 +279,6 @@ private fun Modifier.alphaLayerWithOutset(alpha: () -> Float, outset: Dp): Modif
  * Small enough to be read as a second voice at a glance and no smaller —
  * these are the words of the song, not a caption.
  */
-private val BACKING_FONT_SIZE = 23.sp
-private val BACKING_LINE_HEIGHT = 29.sp
 private const val BACKING_ALPHA = 0.72f
 
 /**
@@ -308,10 +312,6 @@ private const val BACKING_FADE_LEAD = 1.6f
  * way Apple Music prints pronunciation under the lyric, and tucked up into the
  * lead's glow inset so the two read as one line rather than two rows.
  */
-private val SUB_LYRIC_FONT_SIZE = 20.sp
-private val SUB_LYRIC_LINE_HEIGHT = 25.sp
-private val SUB_BACKING_FONT_SIZE = 16.sp
-private val SUB_BACKING_LINE_HEIGHT = 21.sp
 private const val SUB_LYRIC_ALPHA = 0.85f
 private val SUB_LYRIC_TUCK = 6.dp
 private const val SUB_LYRIC_OPEN_MS = 460
@@ -2114,10 +2114,9 @@ internal fun LyricsPanel(
                     ) {
                         Text(
                             text = sectionTitle.uppercase(),
-                            style = MaterialTheme.typography.labelMedium.copy(
+                            style = MaterialTheme.typography.microLabel.copy(
                                 letterSpacing = 1.3.sp,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 11.5.sp,
                             ),
                             color = Color.White.copy(alpha = 0.9f),
                         )
@@ -2253,17 +2252,11 @@ internal fun LyricsPanel(
             } else {
                 val alignEnd = duet && line.alignment == LyricAlignment.End
                 val style = if (isSynced) {
-                    MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 34.sp,
-                        lineHeight = 41.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                    MaterialTheme.typography.lyricSyncedLead.copy(
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
                     )
                 } else {
-                    MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 30.sp,
-                        lineHeight = 38.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                    MaterialTheme.typography.lyricUnsyncedLead.copy(
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
                     )
                 }
@@ -2400,10 +2393,8 @@ internal fun LyricsPanel(
                 // the song, they scale and dim together, and tapping either
                 // seeks to the same place.
                 val sub = subReveal.lines?.getOrNull(index)
-                val subStyle = style.copy(
-                    fontSize = SUB_LYRIC_FONT_SIZE,
-                    lineHeight = SUB_LYRIC_LINE_HEIGHT,
-                    fontWeight = FontWeight.Bold,
+                val subStyle = MaterialTheme.typography.lyricSubVoice.copy(
+                    textAlign = style.textAlign,
                 )
                 // The answering voice is only on screen while it is being sung,
                 // the way Apple Music keeps it: it opens on its own clock, just
@@ -2503,13 +2494,18 @@ internal fun LyricsPanel(
                                 .fillMaxWidth()
                                 .then(backingOpen?.let { Modifier.revealBacking(it, alignEnd) } ?: Modifier),
                         ) {
-                            PanelVoice(
+                             PanelVoice(
                                 line = backing.withoutBracketPunctuation(),
                                 clock = clock,
-                                style = voiceStyle(style.copy(
-                                    fontSize = BACKING_FONT_SIZE,
-                                    lineHeight = BACKING_LINE_HEIGHT,
-                                ), backing.text, alignEnd, duet),
+                                style = voiceStyle(
+                                    MaterialTheme.typography.lyricBackingVoice.copy(
+                                        fontWeight = style.fontWeight,
+                                        textAlign = style.textAlign,
+                                    ),
+                                    backing.text,
+                                    alignEnd,
+                                    duet,
+                                ),
                                 isActive = isActive,
                                 sung = sung,
                                 synced = isSynced,
@@ -2537,10 +2533,14 @@ internal fun LyricsPanel(
                                     PanelVoice(
                                         line = subBacking.withoutBracketPunctuation(),
                                         clock = clock,
-                                        style = voiceStyle(subStyle.copy(
-                                            fontSize = SUB_BACKING_FONT_SIZE,
-                                            lineHeight = SUB_BACKING_LINE_HEIGHT,
-                                        ), subBacking.text, alignEnd, duet),
+                                        style = voiceStyle(
+                                            MaterialTheme.typography.lyricSubBackingVoice.copy(
+                                                textAlign = subStyle.textAlign,
+                                            ),
+                                            subBacking.text,
+                                            alignEnd,
+                                            duet,
+                                        ),
                                         isActive = isActive,
                                         sung = sung,
                                         synced = isSynced,

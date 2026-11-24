@@ -1,6 +1,9 @@
 package com.music.bitchord.ui.replay
 
 import androidx.compose.foundation.background
+import com.music.bitchord.ui.theme.replayCardEmbossedStyle
+import com.music.bitchord.ui.theme.replayCardMicroStamp
+import com.music.bitchord.ui.theme.replayCardStat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -157,10 +160,7 @@ fun ReplayCreditCard(
 
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 27.sp,
-                    lineHeight = 30.sp,
-                    fontWeight = FontWeight.W800,
+                style = MaterialTheme.typography.replayCardStat.copy(
                     brush = PolishedInk,
                     shadow = EmbossShadow,
                 ),
@@ -184,7 +184,7 @@ fun ReplayCreditCard(
                     Embossed(
                         text = holder.ifBlank { stringResource(Res.string.default_replay_holder) }
                             .uppercase(Locale.getDefault()),
-                        size = 13.sp,
+                        primary = true,
                     )
                     if (detail != null) {
                         Text(
@@ -201,10 +201,7 @@ fun ReplayCreditCard(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = stringResource(Res.string.member_since).uppercase(Locale.getDefault()),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 7.sp,
-                            lineHeight = 8.sp,
-                            letterSpacing = 0.8.sp,
+                            style = MaterialTheme.typography.replayCardMicroStamp,
                             color = Color.White.copy(alpha = 0.55f),
                             // Both lines to the right edge, not just the block.
                             // Column alignment places the text *box*; inside it
@@ -214,7 +211,7 @@ fun ReplayCreditCard(
                             // catches the eye every time.
                             textAlign = TextAlign.End,
                         )
-                        Embossed(text = memberSince, size = 12.sp)
+                        Embossed(text = memberSince, primary = false)
                     }
                 }
             }
@@ -232,14 +229,10 @@ fun ReplayCreditCard(
  * above.
  */
 @Composable
-private fun Embossed(text: String, size: TextUnit) {
+private fun Embossed(text: String, primary: Boolean) {
     Text(
         text = text,
-        style = TextStyle(
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.W600,
-            fontSize = size,
-            letterSpacing = 1.6.sp,
+        style = replayCardEmbossedStyle(primary = primary).copy(
             brush = PolishedInk,
             shadow = EmbossShadow,
         ),

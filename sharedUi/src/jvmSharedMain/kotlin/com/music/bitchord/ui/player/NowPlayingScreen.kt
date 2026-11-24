@@ -71,6 +71,8 @@ import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.music.bitchord.ui.theme.playerTrackTitle
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
@@ -978,13 +980,155 @@ fun NowPlayingScreen(
     onLiveCanvasChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val density = LocalDensity.current
-    val haptics = rememberHaptics()
-
     // Remote tracks whose art lives inside the file resolve it here, once —
     // every surface below reads the same value rather than each triggering
     // its own extraction.
     val remoteArt = rememberRemoteArtworkUrl(song)
+    // Force a dark artwork-seeded ColorScheme inside the player even when the
+    // app is in light mode so PlayerQueue selection checkboxes, sheets, and
+    // drawers always render legible light-on-dark artwork-harmonized controls.
+    // The player body itself takes [targetColorScheme] so LocalColorScheme
+    // (a staticCompositionLocalOf) settles once per track change without
+    // invalidating HazeSource or backdrop layers across animation frames, while
+    // leaf queue and overlay subtrees receive the interpolated [colorScheme].
+    val playerPalette = rememberArtworkPalette(
+        imageUrl = remoteArt,
+        dark = true,
+        artPx = ART_PX,
+    )
+    MaterialTheme(colorScheme = playerPalette.targetColorScheme) {
+        NowPlayingScreenBody(
+            song = song,
+            remoteArt = remoteArt,
+            playerAnimatedScheme = playerPalette.colorScheme,
+            playedBy = playedBy,
+            isPlaying = isPlaying,
+            isLoading = isLoading,
+            position = position,
+            durationMs = durationMs,
+            audioVersionSwitching = audioVersionSwitching,
+            qualityUpgraded = qualityUpgraded,
+            queue = queue,
+            queueIndex = queueIndex,
+            hasPrevious = hasPrevious,
+            hasNext = hasNext,
+            repeatMode = repeatMode,
+            shuffleEnabled = shuffleEnabled,
+            autoplayEnabled = autoplayEnabled,
+            signedIn = signedIn,
+            accountName = accountName,
+            likeStatus = likeStatus,
+            onToggleLike = onToggleLike,
+            onPlayPause = onPlayPause,
+            onNext = onNext,
+            onPrevious = onPrevious,
+            previousRestarts = previousRestarts,
+            currentPlaybackSong = currentPlaybackSong,
+            onBlockedControl = onBlockedControl,
+            onSeek = onSeek,
+            onSeekFraction = onSeekFraction,
+            onToggleShuffle = onToggleShuffle,
+            onCycleRepeat = onCycleRepeat,
+            onToggleAutoplay = onToggleAutoplay,
+            onJumpTo = onJumpTo,
+            onRemoveFromQueue = onRemoveFromQueue,
+            onMoveInQueue = onMoveInQueue,
+            onQueueDragActiveChange = onQueueDragActiveChange,
+            onClearQueue = onClearQueue,
+            onQueueSongMenu = onQueueSongMenu,
+            onQueueSwipeToQueue = onQueueSwipeToQueue,
+            queueUndoNotice = queueUndoNotice,
+            onQueueBulkAction = onQueueBulkAction,
+            onQueueRemoveEntries = onQueueRemoveEntries,
+            onQueueAddAllToPlaylist = onQueueAddAllToPlaylist,
+            onOpenMenu = onOpenMenu,
+            onOpenAlbum = onOpenAlbum,
+            onOpenArtist = onOpenArtist,
+            onOpenPlaybackSource = onOpenPlaybackSource,
+            onListenTogether = onListenTogether,
+            lyrics = lyrics,
+            lyricsSource = lyricsSource,
+            lyricsProviderStates = lyricsProviderStates,
+            onSelectLyricsProvider = onSelectLyricsProvider,
+            lyricsUnavailable = lyricsUnavailable,
+            lyricsOffsetOpen = lyricsOffsetOpen,
+            onDismissLyricsOffset = onDismissLyricsOffset,
+            windowWidth = windowWidth,
+            windowHeight = windowHeight,
+            menuOpen = menuOpen,
+            onLiveCanvasChanged = onLiveCanvasChanged,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+@OptIn(ExperimentalHazeApi::class, ExperimentalHazeMaterialsApi::class)
+private fun NowPlayingScreenBody(
+    song: Song,
+    remoteArt: String?,
+    playerAnimatedScheme: androidx.compose.material3.ColorScheme,
+    playedBy: String?,
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    position: PlaybackPosition,
+    durationMs: Long,
+    audioVersionSwitching: Boolean,
+    qualityUpgraded: Boolean,
+    queue: List<Song>,
+    queueIndex: Int,
+    hasPrevious: Boolean,
+    hasNext: Boolean,
+    repeatMode: Int,
+    shuffleEnabled: Boolean,
+    autoplayEnabled: Boolean,
+    signedIn: Boolean,
+    accountName: String?,
+    likeStatus: LikeStatus,
+    onToggleLike: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    previousRestarts: () -> Boolean,
+    currentPlaybackSong: () -> Song?,
+    onBlockedControl: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onSeekFraction: (Float) -> Unit,
+    onToggleShuffle: () -> Unit,
+    onCycleRepeat: () -> Unit,
+    onToggleAutoplay: () -> Unit,
+    onJumpTo: (Int) -> Unit,
+    onRemoveFromQueue: (Int) -> Unit,
+    onMoveInQueue: (Int, Int) -> Unit,
+    onQueueDragActiveChange: (Boolean) -> Unit,
+    onClearQueue: () -> Unit,
+    onQueueSongMenu: (Int, Song) -> Unit,
+    onQueueSwipeToQueue: suspend (Int, Song) -> Boolean,
+    queueUndoNotice: @Composable (HazeState) -> Unit,
+    onQueueBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean,
+    onQueueRemoveEntries: suspend (List<QueueEntryIdentity>) -> Unit,
+    onQueueAddAllToPlaylist: (List<Song>) -> Unit,
+    onOpenMenu: () -> Unit,
+    onOpenAlbum: (String) -> Unit,
+    onOpenArtist: (browseId: String?, name: String) -> Unit,
+    onOpenPlaybackSource: () -> Unit,
+    onListenTogether: () -> Unit,
+    lyrics: List<LyricLine>?,
+    lyricsSource: LyricsSource?,
+    lyricsProviderStates: Map<LyricsSource, LyricsProviderState>,
+    onSelectLyricsProvider: (LyricsSource) -> Unit,
+    lyricsUnavailable: Boolean,
+    lyricsOffsetOpen: Boolean,
+    onDismissLyricsOffset: () -> Unit,
+    windowWidth: Dp,
+    windowHeight: Dp,
+    menuOpen: () -> Boolean,
+    onLiveCanvasChanged: (Boolean) -> Unit,
+    modifier: Modifier,
+) {
+    val density = LocalDensity.current
+    val haptics = rememberHaptics()
+
     // This is produced by the palette's existing 128 px decode and cache. It
     // samples the upper band rather than the whole sleeve because that is what
     // lies beneath the status bar when the player expands to full bleed.
@@ -1929,6 +2073,7 @@ fun NowPlayingScreen(
     // whichever layout is on screen, by [FrostedPlayerFrame] — they are
     // overlays over the player, not part of any shape of it.
     val playerOverlays: @Composable () -> Unit = {
+        MaterialTheme(colorScheme = playerAnimatedScheme) {
         if (showVideoQuality) {
             VideoQualitySheet(
                 hazeState = playerHaze,
@@ -1990,6 +2135,7 @@ fun NowPlayingScreen(
             )
         }
         MixViewOverlay(hazeState = playerHaze)
+        }
     }
 
     // A landscape window — a tablet, or a phone on its side — takes an entirely
@@ -2680,27 +2826,29 @@ fun NowPlayingScreen(
                         }
                     },
                     queuePane = {
-                        InlineQueue(
-                            queue = queue,
-                            currentIndex = queueIndex,
-                            autoplayEnabled = autoplayEnabled,
-                            controlsLocked = controlsLocked,
-                            hazeState = queueHaze,
-                            onJumpTo = onJumpTo,
-                            onRemove = onRemoveFromQueue,
-                            onMove = onMoveInQueue,
-                            onClear = onClearQueue,
-                            onSongMenu = onQueueSongMenu,
-                            onDragActiveChange = onQueueDragActiveChange,
-                            onSwipeToQueue = onQueueSwipeToQueue,
-                            gesturesEnabled = queueOpen && !lyricsOpen && !queueDragging,
-                            undoNotice = queueUndoNotice,
-                            selection = queueSelection,
-                            onBulkAction = onQueueBulkAction,
-                            onRemoveSelected = onQueueRemoveEntries,
-                            modifier = Modifier.fillMaxSize(),
-                            onAddAllToPlaylist = onQueueAddAllToPlaylist,
-                        )
+                        MaterialTheme(colorScheme = playerAnimatedScheme) {
+                            InlineQueue(
+                                queue = queue,
+                                currentIndex = queueIndex,
+                                autoplayEnabled = autoplayEnabled,
+                                controlsLocked = controlsLocked,
+                                hazeState = queueHaze,
+                                onJumpTo = onJumpTo,
+                                onRemove = onRemoveFromQueue,
+                                onMove = onMoveInQueue,
+                                onClear = onClearQueue,
+                                onSongMenu = onQueueSongMenu,
+                                onDragActiveChange = onQueueDragActiveChange,
+                                onSwipeToQueue = onQueueSwipeToQueue,
+                                gesturesEnabled = queueOpen && !lyricsOpen && !queueDragging,
+                                undoNotice = queueUndoNotice,
+                                selection = queueSelection,
+                                onBulkAction = onQueueBulkAction,
+                                onRemoveSelected = onQueueRemoveEntries,
+                                modifier = Modifier.fillMaxSize(),
+                                onAddAllToPlaylist = onQueueAddAllToPlaylist,
+                            )
+                        }
                     },
                 )
             }
@@ -4210,9 +4358,7 @@ fun NowPlayingScreen(
                                     Column {
                                         MarqueeText(
                                             text = song.title,
-                                            style = MaterialTheme.typography.titleLarge.copy(
-                                                fontSize = 20.sp,
-                                            ),
+                                            style = MaterialTheme.typography.playerTrackTitle,
                                             color = Color.White,
                                             enabled = scrolling,
                                             // Before the title, in the artist line's
@@ -4232,9 +4378,8 @@ fun NowPlayingScreen(
                                             credits = remember(song.artist, song.artists, song.artistId) {
                                                 artistCredits(song.artist, song.artists, song.artistId)
                                             },
-                                            style = MaterialTheme.typography.titleLarge.copy(
+                                            style = MaterialTheme.typography.playerTrackTitle.copy(
                                                 fontWeight = FontWeight.W500,
-                                                fontSize = 20.sp,
                                             ),
                                             color = artistColor,
                                             enabled = scrolling,
@@ -4481,32 +4626,34 @@ fun NowPlayingScreen(
                                         }
                                     },
                             ) {
-                                InlineQueue(
-                                    queue = queue,
-                                    currentIndex = queueIndex,
-                                    autoplayEnabled = autoplayEnabled,
-                                    controlsLocked = controlsLocked,
-                                    hazeState = queueHaze,
-                                    onJumpTo = onJumpTo,
-                                    onRemove = onRemoveFromQueue,
-                                    onMove = onMoveInQueue,
-                                    onClear = onClearQueue,
-                                    onSongMenu = onQueueSongMenu,
-                                    onScrollingChange = { queueScrolling = it },
-                                    onSwipeToQueue = onQueueSwipeToQueue,
-                                    gesturesEnabled = queuePanelVisible && queueOpen && !queueDragging,
-                                    undoNotice = queueUndoNotice,
-                                    selection = queueSelection,
-                                    onBulkAction = onQueueBulkAction,
-                                    onRemoveSelected = onQueueRemoveEntries,
-                                    onDragActiveChange = onQueueDragActiveChange,
-                                    onAddAllToPlaylist = onQueueAddAllToPlaylist,
-                                    playerDeckInset = queueDeckInset,
-                                    collapsePlayerOnScroll = true,
-                                    onRevealPlayer = { if (!queueSelection.active) queueControlsOpen = true },
-                                    onHidePlayer = { queueControlsOpen = false },
-                                    modifier = Modifier.weight(1f),
-                                )
+                                MaterialTheme(colorScheme = playerAnimatedScheme) {
+                                    InlineQueue(
+                                        queue = queue,
+                                        currentIndex = queueIndex,
+                                        autoplayEnabled = autoplayEnabled,
+                                        controlsLocked = controlsLocked,
+                                        hazeState = queueHaze,
+                                        onJumpTo = onJumpTo,
+                                        onRemove = onRemoveFromQueue,
+                                        onMove = onMoveInQueue,
+                                        onClear = onClearQueue,
+                                        onSongMenu = onQueueSongMenu,
+                                        onScrollingChange = { queueScrolling = it },
+                                        onSwipeToQueue = onQueueSwipeToQueue,
+                                        gesturesEnabled = queuePanelVisible && queueOpen && !queueDragging,
+                                        undoNotice = queueUndoNotice,
+                                        selection = queueSelection,
+                                        onBulkAction = onQueueBulkAction,
+                                        onRemoveSelected = onQueueRemoveEntries,
+                                        onDragActiveChange = onQueueDragActiveChange,
+                                        onAddAllToPlaylist = onQueueAddAllToPlaylist,
+                                        playerDeckInset = queueDeckInset,
+                                        collapsePlayerOnScroll = true,
+                                        onRevealPlayer = { if (!queueSelection.active) queueControlsOpen = true },
+                                        onHidePlayer = { queueControlsOpen = false },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
                             }
                         }
                     }

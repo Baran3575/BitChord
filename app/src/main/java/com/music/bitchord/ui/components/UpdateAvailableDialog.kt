@@ -38,6 +38,9 @@ import com.halilibo.richtext.ui.material3.RichText
 import com.music.bitchord.R
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.dialogRowDetail
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -140,10 +143,7 @@ fun UpdateAvailableDialog(
             ) {
                 Text(
                     text = stringResource(R.string.software_update),
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.W600,
-                    ),
+                    style = MaterialTheme.typography.alertTitle,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
@@ -159,10 +159,7 @@ fun UpdateAvailableDialog(
                             stringResource(R.string.update_available_body, version)
                     },
                     modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                    ),
+                    style = MaterialTheme.typography.alertBody,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
@@ -195,7 +192,7 @@ fun UpdateAvailableDialog(
                     Text(
                         text = (state as AppUpdateChecker.DownloadState.Failed).message,
                         modifier = Modifier.padding(top = 6.dp),
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center,
                     )
@@ -212,8 +209,7 @@ fun UpdateAvailableDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 12.sp,
+                        style = MaterialTheme.typography.dialogRowDetail.copy(
                             fontWeight = FontWeight.W600,
                         ),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
@@ -302,8 +298,7 @@ internal fun AlertAction(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 17.sp,
+            style = MaterialTheme.typography.alertTitle.copy(
                 fontWeight = if (emphasised) FontWeight.W600 else FontWeight.W400,
             ),
             color = (if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)

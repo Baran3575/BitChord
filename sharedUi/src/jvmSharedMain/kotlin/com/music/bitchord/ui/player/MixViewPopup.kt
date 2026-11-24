@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -89,6 +90,7 @@ import com.music.bitchord.data.settings.MixDeck
 import com.music.bitchord.data.settings.MixTransitionView
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.components.optimizedHazeEffect
+import com.music.bitchord.ui.theme.alertBody
 import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeState
@@ -338,8 +340,7 @@ private fun DeckHeader(deck: MixDeck, sweep: State<Float>, modifier: Modifier = 
                 Text(
                     text = deck.title,
                     color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -347,7 +348,7 @@ private fun DeckHeader(deck: MixDeck, sweep: State<Float>, modifier: Modifier = 
                 Text(
                     text = deck.artist,
                     color = SecondaryText,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.alertBody,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -367,7 +368,7 @@ private fun DeckHeader(deck: MixDeck, sweep: State<Float>, modifier: Modifier = 
                         Text(
                             text = formatDeckDuration(deck.durationMs),
                             color = SecondaryText,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.alertBody,
                         )
                     }
                 }
@@ -386,8 +387,7 @@ private fun DeckNumbers(deck: MixDeck) {
             Text(
                 text = stringResource(Res.string.mix_view_bpm, deck.bpm.roundToInt()),
                 color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.alertBody.copy(fontWeight = FontWeight.Medium),
             )
             Spacer(Modifier.height(5.dp))
         }
@@ -396,8 +396,7 @@ private fun DeckNumbers(deck: MixDeck) {
                 Text(
                     text = camelot.code,
                     color = Color(0xFF151515),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
                         .background(camelot.color)
@@ -408,7 +407,7 @@ private fun DeckNumbers(deck: MixDeck) {
             Text(
                 text = formatDeckDuration(deck.durationMs),
                 color = SecondaryText,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.alertBody,
             )
         }
     }
@@ -477,8 +476,7 @@ private fun MixDecks(view: MixTransitionView, progress: State<Float>, live: Bool
                         else -> stringResource(Res.string.mix_view_bars, bars)
                     },
                     color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.alertBody.copy(fontWeight = FontWeight.Medium),
                 )
             }
         }

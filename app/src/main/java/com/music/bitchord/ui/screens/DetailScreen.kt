@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.components.trackArtSize
+import com.music.bitchord.ui.theme.sheetHeader
 import android.os.Build
 import com.music.bitchord.R
 
@@ -534,6 +535,7 @@ fun DetailScreen(
         }
     }
 
+    MaterialTheme(colorScheme = palette.colorScheme) {
     AnimatedContent(
         targetState = activeShelf,
         transitionSpec = {
@@ -905,6 +907,7 @@ fun DetailScreen(
     )
 }
 }
+    }
 }
 
 /**
@@ -1067,9 +1070,8 @@ private fun ReleaseHeader(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = credit,
-                style = MaterialTheme.typography.titleLarge.copy(
+                style = MaterialTheme.typography.sheetHeader.copy(
                     fontWeight = FontWeight.Normal,
-                    fontSize = 19.sp,
                 ),
                 color = palette.onBackgroundVariant,
                 textAlign = TextAlign.Center,

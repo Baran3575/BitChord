@@ -44,6 +44,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.addon.AddonAuth
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.callout
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -179,20 +182,14 @@ fun AppLanguageDialog(
                         lastTapAt = now
                         if (titleTaps >= TESTER_TAPS) showTesterCode = true
                     },
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.W600,
-                    ),
+                    style = MaterialTheme.typography.alertTitle,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(R.string.app_language_description),
                     modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                    ),
+                    style = MaterialTheme.typography.alertBody,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
@@ -242,7 +239,7 @@ private fun LanguageRow(language: AppLanguage, selected: Boolean, onClick: () ->
     ) {
         Text(
             text = stringResource(language.nameRes),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+            style = MaterialTheme.typography.callout,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )

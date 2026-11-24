@@ -1,6 +1,10 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.qualityBadge
+import com.music.bitchord.ui.theme.sheetHeader
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -330,10 +334,7 @@ private fun MixingLabel(pulse: MixPulse, modifier: Modifier = Modifier) {
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
             .additiveChrome(LocalPlayerChrome.current),
-        style = MaterialTheme.typography.labelMedium.copy(
-            fontWeight = FontWeight.Medium,
-            fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
-        ),
+        style = MaterialTheme.typography.qualityBadge,
         color = chromeWhite(0.85f),
         maxLines = 1,
     )
@@ -345,12 +346,6 @@ private const val UPGRADING_PULSE_MS = 900
 
 /** The label dips only to half between beats: text fading further stops reading as a word. */
 private const val MIXING_LABEL_REST = 0.5f
-
-/**
- * Sp over labelMedium for the quality badge and what stands in for it. Was a
- * whole point at SemiBold, which shouted next to the timestamps either side.
- */
-private const val BADGE_SIZE_BUMP = 0.5f
 
 /**
  * The quality badge between the timestamps — "Lossless", "Hi-Res", a loading
@@ -1550,8 +1545,8 @@ private fun PillSegment(
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = trailingLabel,
+                            style = MaterialTheme.typography.alertBody,
                             color = tint,
-                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -1559,8 +1554,8 @@ private fun PillSegment(
             } else if (label != null) {
                 Text(
                     text = label,
+                    style = MaterialTheme.typography.alertTitle,
                     color = tint,
-                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -1605,7 +1600,6 @@ internal fun OutputCaption(
         ShimmerText(
             text = outputName,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
             ),
@@ -1614,7 +1608,7 @@ internal fun OutputCaption(
     } else {
         Text(
             text = if (badge.inParty) jamName else outputName,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            style = MaterialTheme.typography.labelSmall,
             color = chromeWhite(0.55f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1776,8 +1770,8 @@ private fun BottomGlyph(
         } else if (label != null) {
             Text(
                 text = label,
+                style = MaterialTheme.typography.sheetHeader,
                 color = tint,
-                fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = glyphChrome,
             )
@@ -2266,10 +2260,7 @@ private fun LosslessLabel(
         } else {
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                    fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
-                ),
+                style = MaterialTheme.typography.qualityBadge,
                 color = if (dodged) brightRowInk() else chromeWhite(0.45f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -2294,10 +2285,7 @@ private fun LosslessLabel(
 private fun ShimmerText(
     text: String,
     modifier: Modifier = Modifier,
-    style: TextStyle = MaterialTheme.typography.labelMedium.copy(
-        fontWeight = FontWeight.Medium,
-        fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
-    ),
+    style: TextStyle = MaterialTheme.typography.qualityBadge,
     baseAlpha: Float = 0.55f,
 ) {
     val transition = rememberInfiniteTransition(label = "lossless-shimmer")

@@ -56,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.theme.tabBarLabel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -130,7 +131,7 @@ internal val TAB_ICON_SIZE = 28.dp
 /** A tab's label: Apple's 10pt, letter-spaced as SF Pro Text sets it. */
 @Composable
 internal fun tabLabelStyle(): TextStyle =
-    MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.5.sp)
+    MaterialTheme.typography.tabBarLabel
 
 /**
  * The spring the selection indicator and the tab glyphs both travel on.

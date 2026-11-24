@@ -58,6 +58,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.captionDetail
+import com.music.bitchord.ui.theme.microLabel
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -845,11 +848,7 @@ private fun PipelineSection(
         ) {
             Text(
                 text = title.uppercase(),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.W600,
-                    letterSpacing = 0.5.sp,
-                ),
+                style = MaterialTheme.typography.microLabel,
                 color = Color.White,
                 modifier = Modifier
                     .padding(top = 3.dp)
@@ -881,10 +880,7 @@ private fun PipelineRow(label: String, value: String) {
         }
         Text(
             text = text,
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontSize = 12.5.sp,
-                lineHeight = 17.sp,
-            ),
+            style = MaterialTheme.typography.captionDetail,
         )
     }
 }
@@ -921,10 +917,7 @@ internal fun PipelineDoneAction(label: String, onClick: () -> Unit) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 17.sp,
-                fontWeight = FontWeight.W600,
-            ),
+            style = MaterialTheme.typography.alertTitle,
             color = Color.White,
         )
     }
@@ -934,8 +927,7 @@ internal fun PipelineDoneAction(label: String, onClick: () -> Unit) {
 private fun PipelineNote(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodySmall.copy(
-            fontSize = 11.sp,
+        style = MaterialTheme.typography.labelSmall.copy(
             lineHeight = 14.sp,
             color = Color.White.copy(alpha = 0.60f),
         ),

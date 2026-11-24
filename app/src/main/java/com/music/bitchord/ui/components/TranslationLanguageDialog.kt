@@ -48,6 +48,10 @@ import com.music.bitchord.R
 import com.music.bitchord.data.lyrics.TRANSLATION_LANGUAGES
 import com.music.bitchord.data.lyrics.translationLanguageName
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.theme.alertBody
+import com.music.bitchord.ui.theme.alertTitle
+import com.music.bitchord.ui.theme.callout
+import com.music.bitchord.ui.theme.dialogRowDetail
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -142,20 +146,14 @@ fun TranslationLanguageDialog(
             ) {
                 Text(
                     text = stringResource(R.string.translation_language),
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.W600,
-                    ),
+                    style = MaterialTheme.typography.alertTitle,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(R.string.translation_language_description),
                     modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                    ),
+                    style = MaterialTheme.typography.alertBody,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
@@ -203,7 +201,7 @@ fun TranslationLanguageDialog(
                     item {
                         Text(
                             text = stringResource(R.string.no_languages_match),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                            style = MaterialTheme.typography.alertBody,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             textAlign = TextAlign.Center,
                             modifier = Modifier
@@ -246,7 +244,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
             if (query.isEmpty()) {
                 Text(
                     text = stringResource(R.string.search_languages),
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                    style = MaterialTheme.typography.callout,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                 )
             }
@@ -254,8 +252,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 15.sp,
+                textStyle = MaterialTheme.typography.callout.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -294,14 +291,14 @@ private fun LanguageChoiceRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                style = MaterialTheme.typography.callout,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = detail,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                style = MaterialTheme.typography.dialogRowDetail,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

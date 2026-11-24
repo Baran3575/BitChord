@@ -5042,32 +5042,40 @@ private fun BitChordApp(
                             nowPlaying(playerSong)
                         }
                     }
-                    IosMenuPopover(
-                        item = songActions?.takeIf { songMenuOrigin == null && menuFromPlayer },
-                        anchor = songMenuAnchor,
-                        onDismiss = { songActions = null },
-                        backdrop = if (playerLiveCanvas) livePlayerBackdrop else playerBackdrop,
-                    ) { song ->
-                        songMenuBody(song)
-                    }
-                    HeldContextMenu(
-                        item = songActions?.takeIf { menuFromPlayer },
-                        held = songMenuOrigin,
-                        hazeState = playerMenuHaze,
-                        inPlayerSheet = true,
-                        preview = if (menuFromQueue) {
-                            { song -> com.music.bitchord.ui.player.QueueSongPreview(song) }
-                        } else null,
-                        onDismiss = { songActions = null },
-                        onPreviewClick = { song ->
-                            song.albumId?.let { id ->
-                                songActions = null
-                                dismissPlayer()
-                                viewModel.openDetail(id, song.albumName ?: song.title, song.artist, song.thumbnailUrl, BrowseType.ALBUM)
-                            }
-                        },
-                    ) { song ->
-                        songMenuBody(song)
+                    val playerMenuArtUrl = com.music.bitchord.ui.components.rememberRemoteArtworkUrl(playerSong)
+                    val playerMenuPalette = rememberArtworkPalette(
+                        imageUrl = playerMenuArtUrl,
+                        dark = true,
+                        artPx = com.music.bitchord.data.model.PLAYER_ART_PX,
+                    )
+                    MaterialTheme(colorScheme = playerMenuPalette.colorScheme) {
+                        IosMenuPopover(
+                            item = songActions?.takeIf { songMenuOrigin == null && menuFromPlayer },
+                            anchor = songMenuAnchor,
+                            onDismiss = { songActions = null },
+                            backdrop = if (playerLiveCanvas) livePlayerBackdrop else playerBackdrop,
+                        ) { song ->
+                            songMenuBody(song)
+                        }
+                        HeldContextMenu(
+                            item = songActions?.takeIf { menuFromPlayer },
+                            held = songMenuOrigin,
+                            hazeState = playerMenuHaze,
+                            inPlayerSheet = true,
+                            preview = if (menuFromQueue) {
+                                { song -> com.music.bitchord.ui.player.QueueSongPreview(song) }
+                            } else null,
+                            onDismiss = { songActions = null },
+                            onPreviewClick = { song ->
+                                song.albumId?.let { id ->
+                                    songActions = null
+                                    dismissPlayer()
+                                    viewModel.openDetail(id, song.albumName ?: song.title, song.artist, song.thumbnailUrl, BrowseType.ALBUM)
+                                }
+                            },
+                        ) { song ->
+                            songMenuBody(song)
+                        }
                     }
                 }
             }
@@ -5130,6 +5138,12 @@ private fun BitChordApp(
         // on the frame the menu starts to grow — the stutter at the start of
         // its spring, blur or no blur.
         Isolated {
+            val activeMenuScheme = if (topDetail != null && !menuFromHistory && !menuFromQueue) {
+                detailPalette.colorScheme
+            } else {
+                MaterialTheme.colorScheme
+            }
+            MaterialTheme(colorScheme = activeMenuScheme) {
             // Drawn over everything, tab bar and mini player included, and kept
             // composed through its own exit — so it is not gated on songActions.
             HeldContextMenu(
@@ -5179,6 +5193,7 @@ private fun BitChordApp(
                     menuFromHistory = false
                 }
             }
+            }
         }
 
         queuePlaylistSongs?.let { targets ->
@@ -5187,14 +5202,22 @@ private fun BitChordApp(
                 completion?.complete(completed)
                 if (queuePlaylistCompletion === completion) queuePlaylistSongs = null
             }
-            key(completion) {
-                QueuePlaylistPicker(
-                    songs = targets,
-                    viewModel = viewModel,
-                    onNotice = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() },
-                    onComplete = { finish(true) },
-                    onDismiss = { finish(false) },
-                )
+            val queuePickerArtUrl = com.music.bitchord.ui.components.rememberRemoteArtworkUrl(playerSong)
+            val queuePickerPalette = rememberArtworkPalette(
+                imageUrl = queuePickerArtUrl,
+                dark = true,
+                artPx = com.music.bitchord.data.model.PLAYER_ART_PX,
+            )
+            MaterialTheme(colorScheme = queuePickerPalette.colorScheme) {
+                key(completion) {
+                    QueuePlaylistPicker(
+                        songs = targets,
+                        viewModel = viewModel,
+                        onNotice = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() },
+                        onComplete = { finish(true) },
+                        onDismiss = { finish(false) },
+                    )
+                }
             }
         }
 
@@ -5208,65 +5231,81 @@ private fun BitChordApp(
                 playlistTarget = null
                 creatingPlaylist = false
             }
-            PlaylistPickerSheet(
-                playlists = playlists,
-                loading = playlistsLoading,
-                song = target,
-                startCreating = target == null,
-                onDismiss = dismiss,
-                onAdd = { picked ->
-                    target?.let { song ->
-                        viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
-                            // One line for the whole batch, saying the outcome
-                            // that matters most: what went in, else that it was
-                            // all there already, else that it didn't work.
+            val pickerPlayerArtUrl = com.music.bitchord.ui.components.rememberRemoteArtworkUrl(playerSong.takeIf { playerRaised })
+            val pickerPlayerPalette = rememberArtworkPalette(
+                imageUrl = pickerPlayerArtUrl,
+                dark = true,
+                artPx = com.music.bitchord.data.model.PLAYER_ART_PX,
+            )
+            val pickerScheme = when {
+                playerRaised -> pickerPlayerPalette.colorScheme
+                topDetail != null && target != null -> detailPalette.colorScheme
+                else -> MaterialTheme.colorScheme
+            }
+            MaterialTheme(colorScheme = pickerScheme) {
+                PlaylistPickerSheet(
+                    playlists = playlists,
+                    loading = playlistsLoading,
+                    song = target,
+                    startCreating = target == null,
+                    onDismiss = dismiss,
+                    onAdd = { picked ->
+                        target?.let { song ->
+                            viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
+                                // One line for the whole batch, saying the outcome
+                                // that matters most: what went in, else that it was
+                                // all there already, else that it didn't work.
+                                showQueueNotice(
+                                    when {
+                                        added > 1 -> context.resources.getQuantityString(
+                                            R.plurals.added_to_playlists_notice, added, added,
+                                        )
+                                        added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                        alreadyThere > 0 && failed == 0 ->
+                                            context.getString(R.string.song_already_in_playlist)
+                                        else -> context.getString(R.string.failed)
+                                    },
+                                )
+                            }
+                        }
+                    },
+                    onCreate = { title, privacy ->
+                        viewModel.createPlaylist(title, privacy, target)
+                    },
+                )
+            }
+        }
+
+        albumPlaylistTarget?.let { target ->
+            val albumPickerScheme = if (topDetail != null) detailPalette.colorScheme else MaterialTheme.colorScheme
+            MaterialTheme(colorScheme = albumPickerScheme) {
+                PlaylistPickerSheet(
+                    playlists = playlists,
+                    loading = playlistsLoading,
+                    song = target.songs.firstOrNull(),
+                    headerTitle = target.title,
+                    onDismiss = { albumPlaylistTarget = null },
+                    onAdd = { picked ->
+                        viewModel.addSongsToPlaylists(picked, target.songs) { added, alreadyThere, failed ->
                             showQueueNotice(
                                 when {
-                                    added > 1 -> context.resources.getQuantityString(
-                                        R.plurals.added_to_playlists_notice, added, added,
-                                    )
-                                    added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                    alreadyThere > 0 && failed == 0 ->
-                                        context.getString(R.string.song_already_in_playlist)
+                                    added > 0 -> context.getString(R.string.song_added_to_playlist)
+                                    alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
                                     else -> context.getString(R.string.failed)
                                 },
                             )
                         }
-                    }
-                },
-                onCreate = { title, privacy ->
-                    viewModel.createPlaylist(title, privacy, target)
-                },
-            )
-        }
-
-        albumPlaylistTarget?.let { target ->
-            PlaylistPickerSheet(
-                playlists = playlists,
-                loading = playlistsLoading,
-                song = target.songs.firstOrNull(),
-                headerTitle = target.title,
-                onDismiss = { albumPlaylistTarget = null },
-                onAdd = { picked ->
-                    viewModel.addSongsToPlaylists(picked, target.songs) { added, alreadyThere, failed ->
-                        showQueueNotice(
-                            when {
-                                added > 0 -> context.getString(R.string.song_added_to_playlist)
-                                alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
-                                else -> context.getString(R.string.failed)
-                            },
+                    },
+                    onCreate = { title, privacy ->
+                        viewModel.createPlaylistWithVideoIds(
+                            title = title,
+                            privacy = privacy,
+                            videoIds = target.songs.map { it.videoId },
+                            songs = target.songs,
                         )
-                    }
-                },
-                onCreate = { title, privacy ->
-                    viewModel.createPlaylistWithVideoIds(
-                        title = title,
-                        privacy = privacy,
-                        videoIds = target.songs.map { it.videoId },
-                        songs = target.songs,
-                    )
-                },
-            )
+                    },
+                )
+            }
         }
 
         // ---- Add to a device playlist / new device playlist ----
@@ -5598,6 +5637,12 @@ private fun BitChordApp(
         }
         // In a recompose scope of its own, as the track menu's is.
         Isolated {
+            val activeBrowseMenuScheme = if (topDetail != null) {
+                detailPalette.colorScheme
+            } else {
+                MaterialTheme.colorScheme
+            }
+            MaterialTheme(colorScheme = activeBrowseMenuScheme) {
             // Rename is a text field and a keyboard, which have no place on a menu
             // floating over the page: the menu hands it on, and the form comes up
             // here on a sheet of its own.
@@ -5647,6 +5692,7 @@ private fun BitChordApp(
                     browseMenuAnchor = null
                     browseRenameInSheet = false
                 }
+            }
             }
         }
 
@@ -5808,34 +5854,36 @@ private fun BitChordApp(
 
         if (songSortMenuOpen) {
             BackHandler { songSortMenuOpen = false }
-            FrostedSortMenu(
-                hazeState = hazeState,
-                selected = songSort,
-                // Only a page whose files carry track tags — a local album —
-                // has anything to sort by track number.
-                offerTrackNumber = (detail?.songs as? UiState.Success)?.data
-                    .orEmpty()
-                    .any { it.trackNumber != null },
-                onSelect = { option ->
-                    detail?.browseId?.let { AppSettings.setDetailSongSort(it, option) }
-                    songSortMenuOpen = false
-                },
-                // Flipping the date direction deliberately leaves the menu up:
-                // closing it here would cut the arrow's rotation animation off
-                // before it played, and the open menu lets the direction flip
-                // read against the list reordering behind the frost.
-                onFlipDateDirection = {
-                    detail?.browseId?.let { browseId ->
-                        val next = when (songSort) {
-                            SongSort.DATE_ADDED_DESC -> SongSort.DATE_ADDED_ASC
-                            SongSort.DATE_ADDED_ASC -> SongSort.DATE_ADDED_DESC
-                            else -> SongSort.DATE_ADDED_DESC
+            MaterialTheme(colorScheme = if (topDetail != null) detailPalette.colorScheme else MaterialTheme.colorScheme) {
+                FrostedSortMenu(
+                    hazeState = hazeState,
+                    selected = songSort,
+                    // Only a page whose files carry track tags — a local album —
+                    // has anything to sort by track number.
+                    offerTrackNumber = (detail?.songs as? UiState.Success)?.data
+                        .orEmpty()
+                        .any { it.trackNumber != null },
+                    onSelect = { option ->
+                        detail?.browseId?.let { AppSettings.setDetailSongSort(it, option) }
+                        songSortMenuOpen = false
+                    },
+                    // Flipping the date direction deliberately leaves the menu up:
+                    // closing it here would cut the arrow's rotation animation off
+                    // before it played, and the open menu lets the direction flip
+                    // read against the list reordering behind the frost.
+                    onFlipDateDirection = {
+                        detail?.browseId?.let { browseId ->
+                            val next = when (songSort) {
+                                SongSort.DATE_ADDED_DESC -> SongSort.DATE_ADDED_ASC
+                                SongSort.DATE_ADDED_ASC -> SongSort.DATE_ADDED_DESC
+                                else -> SongSort.DATE_ADDED_DESC
+                            }
+                            AppSettings.setDetailSongSort(browseId, next)
                         }
-                        AppSettings.setDetailSongSort(browseId, next)
-                    }
-                },
-                onDismiss = { songSortMenuOpen = false },
-            )
+                    },
+                    onDismiss = { songSortMenuOpen = false },
+                )
+            }
         }
 
         val menuFolder = detail?.browseId?.takeIf { it.isDeviceFolder() }
@@ -5843,23 +5891,25 @@ private fun BitChordApp(
             BackHandler { folderMenuOpen = false }
             val downloadsFolder = menuFolder == "local:downloads"
             val viewType = folderViewTypeOf(menuFolder)
-            FrostedFolderMenu(
-                hazeState = hazeState,
-                sort = folderSortOf(menuFolder),
-                viewType = viewType,
-                onSort = { option ->
-                    if (downloadsFolder) AppSettings.setDownloadedMusicSort(option)
-                    else AppSettings.setLocalMusicSort(option)
-                    folderMenuOpen = false
-                },
-                onToggleViewType = {
-                    val next = if (viewType == LibraryViewType.GRID) LibraryViewType.LIST else LibraryViewType.GRID
-                    if (downloadsFolder) AppSettings.setDownloadedMusicViewType(next)
-                    else AppSettings.setLocalMusicViewType(next)
-                    folderMenuOpen = false
-                },
-                onDismiss = { folderMenuOpen = false },
-            )
+            MaterialTheme(colorScheme = if (topDetail != null) detailPalette.colorScheme else MaterialTheme.colorScheme) {
+                FrostedFolderMenu(
+                    hazeState = hazeState,
+                    sort = folderSortOf(menuFolder),
+                    viewType = viewType,
+                    onSort = { option ->
+                        if (downloadsFolder) AppSettings.setDownloadedMusicSort(option)
+                        else AppSettings.setLocalMusicSort(option)
+                        folderMenuOpen = false
+                    },
+                    onToggleViewType = {
+                        val next = if (viewType == LibraryViewType.GRID) LibraryViewType.LIST else LibraryViewType.GRID
+                        if (downloadsFolder) AppSettings.setDownloadedMusicViewType(next)
+                        else AppSettings.setLocalMusicViewType(next)
+                        folderMenuOpen = false
+                    },
+                    onDismiss = { folderMenuOpen = false },
+                )
+            }
         }
 
         if (showAccountSelector) {
