@@ -105,13 +105,15 @@ fun TvNowPlayingScreen(
     val autoplay by AppSettings.autoplay.collectAsState()
     val playerStyle by TvSettings.tvPlayerStyle.collectAsState()
 
-    LaunchedEffect(song.videoId, durationMs) {
+    LaunchedEffect(song.videoId, durationMs, song.albumName, song.isrc) {
         viewModel.loadLyrics(
             videoId = song.videoId,
             title = song.title,
             artist = song.artist,
             durationMs = durationMs.coerceAtLeast(0L),
             album = song.albumName,
+            localUri = song.localUri,
+            isrc = song.isrc,
         )
     }
 

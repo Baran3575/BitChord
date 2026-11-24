@@ -594,6 +594,7 @@ fun MediaItem.toSong() = Song(
     playbackSourceId = mediaMetadata.extras?.getString(EXTRA_PLAYBACK_SOURCE_ID),
     localUri = mediaMetadata.extras?.getString(EXTRA_LOCAL_URI),
     localPath = mediaMetadata.extras?.getString(EXTRA_LOCAL_PATH),
+    isrc = mediaMetadata.extras?.getString(EXTRA_ISRC),
 )
 
 internal val mediaItemTiers = java.util.Collections.synchronizedMap(java.util.WeakHashMap<MediaItem, QueueTier>())
@@ -678,6 +679,9 @@ internal const val EXTRA_LOCAL_URI = "bitchord.localUri"
 
 /** @see Song.localPath */
 internal const val EXTRA_LOCAL_PATH = "bitchord.localPath"
+
+/** @see Song.isrc */
+internal const val EXTRA_ISRC = "bitchord.isrc"
 
 /**
  * How long the track runs, as the row that queued it said.
@@ -880,7 +884,7 @@ fun Song.toMediaItem(): MediaItem {
                     offlineUri != null || durationText != null ||
                     artistId != null || albumId != null || setVideoId != null ||
                     isExplicit != null || isVideo || isVideoOrigin || radioName != null ||
-                    sourceQuality != null ||
+                    sourceQuality != null || isrc != null ||
                     playbackSource != null || playbackSourceType != null || playbackSourceId != null
                 ) {
                     setExtras(
@@ -894,6 +898,7 @@ fun Song.toMediaItem(): MediaItem {
                             EXTRA_PLAYBACK_SOURCE_ID to playbackSourceId,
                             EXTRA_LOCAL_URI to offlineUri,
                             EXTRA_LOCAL_PATH to localPath,
+                            EXTRA_ISRC to isrc,
                             EXTRA_DURATION to durationText,
                             EXTRA_ARTIST_ID to artistId,
                             EXTRA_ALBUM_ID to albumId,

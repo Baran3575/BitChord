@@ -6,9 +6,9 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Where the player gets its lyrics.
@@ -42,32 +42,31 @@ import java.util.concurrent.ConcurrentHashMap
  * from the highest-priority source that had it — better a whole line lighting
  * up in sync than the right animation on lyrics that don't exist.
  *
- * ### Matching on the recording
+ * ### Matching on the recording without blocking race start
  *
- * Everything above matches a *name*, and a name is ambiguous in a way that
- * matters: a single and its album cut share a title, an artist and very nearly
- * a length, and routinely differ in the words. An ISRC names one recording and
- * settles it. Two sources accept one — [BiniLyrics] and [LyricsPlus] — and
- * [BiniLyrics] is also the one that hands them out, reporting the ISRC of
- * whatever its own search matched.
- *
- * So the recording is settled *before* anybody is asked for words: one small
- * search against [BiniLyrics], whose answer is a name every other source can
- * use. It costs a round trip at the head of the lookup, which is why it is
- * capped at [IDENTIFY_TIMEOUT_MS] and why its result is kept against the video
- * id — a track asked about twice pays for this once. A downloaded or local file
- * can skip it entirely: its own tags name the recording, which is what the
- * [isrc] parameter is for.
- *
- * Only run when the user has [LyricsSource.BINI_LYRICS] enabled. It is a
- * request to a third party like any other, and a source somebody has turned off
- * is a source this app does not contact — not even for something it would only
- * use to help the sources they left on.
+ * An ISRC names one recording and avoids single-vs-album edit mismatches.
+ * Instead of delaying the whole provider race on a preliminary identify call,
+ * all enabled sources launch immediately with any known or cached ISRC, while
+ * [BiniLyrics], [LrcRed], [PaxSenix], and [Musixmatch] share and cache
+ * discovered ISRCs non-blockingly for in-flight fallback stages and future
+ * lookups of the same [videoId]. Disabled or hidden sources are never contacted.
  */
 object LyricsRepository {
 
     /** Lyrics, and which source they turned out to come from. */
     data class Result(val source: LyricsSource, val lines: List<LyricLine>)
+
+    internal data class SourceCall(
+        val source: LyricsSource,
+        val videoId: String,
+        val title: String,
+        val artist: String,
+        val durationMs: Long,
+        val album: String?,
+        val currentIsrc: () -> String?,
+        val onIsrc: (String) -> Unit,
+        val getDocument: suspend (String) -> String?,
+    )
 
     /**
      * [sources] is the user's pick from Settings; anything not in it is not
@@ -77,12 +76,10 @@ object LyricsRepository {
      * saved) falls in after everything named, in [LyricsSource]'s own order.
      *
      * [prioritizeSyllableSync] decides what happens once *something* has come
-     * back: off, the highest-priority source's own answer is taken as-is,
-     * word-synced or not — priority is priority, and second-guessing it with
-     * more network calls after it has already answered is not what "first"
-     * was supposed to mean. On, a merely line-synced answer is kept only as a
-     * fallback, and the search keeps going through the rest of [order] for a
-     * word-synced one, taking the top-priority source that has one.
+     * back: on by default, a merely line-synced answer is kept only as a
+     * fallback while the search keeps going through the rest of [order] for a
+     * word-synced one, taking the top-priority source that has one. Off, the
+     * highest-priority source's own answer is taken as-is.
      */
     suspend fun lyrics(
         videoId: String,
@@ -92,7 +89,7 @@ object LyricsRepository {
         album: String? = null,
         sources: Set<LyricsSource> = LyricsSource.entries.toSet(),
         order: List<LyricsSource> = LyricsSource.entries,
-        prioritizeSyllableSync: Boolean = false,
+        prioritizeSyllableSync: Boolean = true,
         isrc: String? = null,
         /** Called from the provider job itself, including for lazily-started providers. */
         onSourceStarted: ((LyricsSource) -> Unit)? = null,
@@ -103,6 +100,36 @@ object LyricsRepository {
         onSourceResult: ((LyricsSource, Result?) -> Unit)? = null,
         /** Lets callers turn a cancelled race loser back into "not fetched". */
         onSourceCancelled: ((LyricsSource) -> Unit)? = null,
+    ): Result? = lookup(
+        videoId = videoId,
+        title = title,
+        artist = artist,
+        durationMs = durationMs,
+        album = album,
+        sources = sources,
+        order = order,
+        prioritizeSyllableSync = prioritizeSyllableSync,
+        isrc = isrc,
+        onSourceStarted = onSourceStarted,
+        onSourceResult = onSourceResult,
+        onSourceCancelled = onSourceCancelled,
+        fetchSource = ::fetch,
+    )
+
+    internal suspend fun lookup(
+        videoId: String,
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+        sources: Set<LyricsSource> = LyricsSource.entries.toSet(),
+        order: List<LyricsSource> = LyricsSource.entries,
+        prioritizeSyllableSync: Boolean = true,
+        isrc: String? = null,
+        onSourceStarted: ((LyricsSource) -> Unit)? = null,
+        onSourceResult: ((LyricsSource, Result?) -> Unit)? = null,
+        onSourceCancelled: ((LyricsSource) -> Unit)? = null,
+        fetchSource: suspend (SourceCall) -> List<LyricLine>?,
     ): Result? = coroutineScope {
         val sequence = (order + LyricsSource.offered)
             .distinct()
@@ -114,35 +141,42 @@ object LyricsRepository {
         val searchTitle = title.forLyricsSearch()
         val searchArtist = artist.artistForLyricsSearch()
 
-        // Settled before anyone is asked for words, so every source that can
-        // name the recording does. What the caller knows beats what we worked
-        // out last time, and both beat asking again.
-        val known = isrc?.takeIf { it.isNotBlank() } ?: isrcs[videoId]
-        val hit = if (known == null) {
-            identify(videoId, searchTitle, searchArtist, durationMs, album, sequence)
-        } else {
-            null
+        val initialIsrc = LrcRed.normalizeIsrc(isrc) ?: isrc?.trim()?.takeIf { it.isNotEmpty() }
+        if (initialIsrc != null) remember(videoId, initialIsrc)
+        val sharedIsrc = AtomicReference<String?>(initialIsrc ?: isrcs[videoId])
+        val onIsrc: (String) -> Unit = { discovered ->
+            val normalized = LrcRed.normalizeIsrc(discovered) ?: discovered.trim().takeIf { it.isNotEmpty() }
+            if (normalized != null) {
+                sharedIsrc.compareAndSet(null, normalized)
+                remember(videoId, normalized)
+            }
         }
-        val recording = known ?: hit?.isrc?.takeIf { it.isNotBlank() }
+        val currentIsrc: () -> String? = { sharedIsrc.get() ?: isrcs[videoId] }
         val documents = SharedDocuments(this)
 
         // Genius is a plain text web scraper. To preserve bandwidth and avoid rate-limiting,
         // it starts lazily and is only contacted if all higher-priority synced sources miss.
         val racing: List<Pair<LyricsSource, Deferred<Result?>>> = sequence.map { source ->
-            val startMode = if (source == LyricsSource.GENIUS) kotlinx.coroutines.CoroutineStart.LAZY else kotlinx.coroutines.CoroutineStart.DEFAULT
+            val startMode = if (source == LyricsSource.GENIUS) {
+                kotlinx.coroutines.CoroutineStart.LAZY
+            } else {
+                kotlinx.coroutines.CoroutineStart.DEFAULT
+            }
             source to async(Dispatchers.IO, start = startMode) {
                 onSourceStarted?.invoke(source)
                 try {
-                    val found = fetch(
-                        source,
-                        videoId,
-                        searchTitle,
-                        searchArtist,
-                        durationMs,
-                        album,
-                        recording,
-                        hit,
-                        documents::get,
+                    val found = fetchSource(
+                        SourceCall(
+                            source = source,
+                            videoId = videoId,
+                            title = searchTitle,
+                            artist = searchArtist,
+                            durationMs = durationMs,
+                            album = album,
+                            currentIsrc = currentIsrc,
+                            onIsrc = onIsrc,
+                            getDocument = documents::get,
+                        ),
                     )?.let { result(source, it) }
                     onSourceResult?.invoke(source, found)
                     found
@@ -196,41 +230,60 @@ object LyricsRepository {
         return lineSynced ?: plain
     }
 
-    private suspend fun fetch(
-        source: LyricsSource,
-        videoId: String,
-        title: String,
-        artist: String,
-        durationMs: Long,
-        album: String?,
-        isrc: String?,
-        /** What [identify] already found, where it ran; saves a second search. */
-        hit: BiniLyrics.Hit?,
-        /** Fetches a document once per lookup, however many sources want it. */
-        get: suspend (String) -> String?,
-    ): List<LyricLine>? {
-        val found = when (source) {
-            LyricsSource.LRC_RED -> LrcRed.lyrics(title, artist, durationMs, isrc, get)
-            LyricsSource.BETTER_LYRICS -> BetterLyrics.lyrics(title, artist, durationMs, album)
-            LyricsSource.BETTER_LYRICS_PORTATO -> BetterLyrics.portato(title, artist, durationMs, album)
-            LyricsSource.LYRICS_PLUS -> LyricsPlus.lyrics(title, artist, durationMs, album, isrc)
-            LyricsSource.BINI_LYRICS ->
-                (hit?.let { BiniLyrics.lyricsFor(it, get) }
-                    ?: BiniLyrics.lyrics(title, artist, durationMs, album, isrc, get))
-                    ?.also { remember(videoId, it.isrc) }
-                    ?.lines
-            LyricsSource.UNISON -> Unison.lyrics(title, artist, durationMs, album)
-            LyricsSource.SIMP_MUSIC -> SimpMusicLyrics.lyrics(videoId, durationMs)
-            LyricsSource.YOUTUBE_TRANSCRIPT -> YouTubeTranscriptLyrics.lyrics(videoId)
-            LyricsSource.YOUTUBE_MUSIC -> YouTubeMusicLyrics.lyrics(videoId)
-            LyricsSource.LRCLIB -> LrcLib.lyrics(title, artist, durationMs)
-            LyricsSource.MUSIXMATCH -> Musixmatch.lyrics(title, artist, durationMs)
-            LyricsSource.PAXSENIX -> PaxSenix.lyrics(title, artist, durationMs, album)
-            LyricsSource.PAXSENIX_SPOTIFY -> PaxSenix.spotifyLyrics(title, artist, durationMs)
-            LyricsSource.PAXSENIX_MUSIXMATCH -> PaxSenix.musixmatchLyrics(title, artist, durationMs)
-            LyricsSource.KUGOU -> KuGou.lyrics(title, artist, durationMs, album)
-            LyricsSource.MEGALOBIZ -> Megalobiz.lyrics(title, artist)
-            LyricsSource.GENIUS -> Genius.lyrics(title, artist)
+    private suspend fun fetch(call: SourceCall): List<LyricLine>? {
+        val found = when (call.source) {
+            LyricsSource.LRC_RED -> LrcRed.lyrics(
+                title = call.title,
+                artist = call.artist,
+                durationMs = call.durationMs,
+                isrc = call.currentIsrc(),
+                get = call.getDocument,
+                isrcProvider = call.currentIsrc,
+                onIsrc = call.onIsrc,
+            )
+            LyricsSource.BETTER_LYRICS -> BetterLyrics.lyrics(call.title, call.artist, call.durationMs, call.album)
+            LyricsSource.BETTER_LYRICS_PORTATO -> BetterLyrics.portato(call.title, call.artist, call.durationMs, call.album)
+            LyricsSource.LYRICS_PLUS -> LyricsPlus.lyrics(
+                title = call.title,
+                artist = call.artist,
+                durationMs = call.durationMs,
+                album = call.album,
+                isrc = call.currentIsrc(),
+                isrcProvider = call.currentIsrc,
+            )
+            LyricsSource.BINI_LYRICS -> BiniLyrics.lyrics(
+                title = call.title,
+                artist = call.artist,
+                durationMs = call.durationMs,
+                album = call.album,
+                isrc = call.currentIsrc(),
+                get = call.getDocument,
+                isrcProvider = call.currentIsrc,
+                onIsrc = call.onIsrc,
+            )?.lines
+            LyricsSource.UNISON -> Unison.lyrics(call.title, call.artist, call.durationMs, call.album)
+            LyricsSource.SIMP_MUSIC -> SimpMusicLyrics.lyrics(call.videoId, call.durationMs)
+            LyricsSource.YOUTUBE_TRANSCRIPT -> YouTubeTranscriptLyrics.lyrics(call.videoId)
+            LyricsSource.YOUTUBE_MUSIC -> YouTubeMusicLyrics.lyrics(call.videoId)
+            LyricsSource.LRCLIB -> LrcLib.lyrics(call.title, call.artist, call.durationMs)
+            LyricsSource.MUSIXMATCH -> Musixmatch.lyrics(
+                title = call.title,
+                artist = call.artist,
+                durationMs = call.durationMs,
+                onIsrc = call.onIsrc,
+            )
+            LyricsSource.PAXSENIX -> PaxSenix.lyrics(
+                title = call.title,
+                artist = call.artist,
+                durationMs = call.durationMs,
+                album = call.album,
+                onIsrc = call.onIsrc,
+            )
+            LyricsSource.PAXSENIX_SPOTIFY -> PaxSenix.spotifyLyrics(call.title, call.artist, call.durationMs)
+            LyricsSource.PAXSENIX_MUSIXMATCH -> PaxSenix.musixmatchLyrics(call.title, call.artist, call.durationMs)
+            LyricsSource.KUGOU -> KuGou.lyrics(call.title, call.artist, call.durationMs, call.album)
+            LyricsSource.MEGALOBIZ -> Megalobiz.lyrics(call.title, call.artist)
+            LyricsSource.GENIUS -> Genius.lyrics(call.title, call.artist)
         }
         // An instrumental's "pure music, please enjoy" is no lyrics, whoever relays it.
         return found?.takeUnless(KuGou::isInstrumentalNotice)
@@ -245,41 +298,6 @@ object LyricsRepository {
      */
     private fun result(source: LyricsSource, lines: List<LyricLine>) =
         Result(source, lines.withBackgroundVocals())
-
-    /**
-     * Longest the lookup will wait to find out which recording this is.
-     *
-     * Short on purpose. Knowing the recording makes every match better, but not
-     * knowing it only puts things back where they were a release ago, and a
-     * lyrics panel sitting empty because one host is having a slow morning is a
-     * worse failure than a fuzzy match.
-     */
-    private const val IDENTIFY_TIMEOUT_MS = 2_500L
-
-    /**
-     * The one request made before the race: which recording is this?
-     *
-     * Skipped entirely when the source that answers it is switched off, and
-     * given up on rather than waited out — see [IDENTIFY_TIMEOUT_MS]. What it
-     * finds is remembered, so a track pays for this once rather than once per
-     * lookup, and the hit is handed back so [BiniLyrics] need not search twice.
-     */
-    private suspend fun identify(
-        videoId: String,
-        title: String,
-        artist: String,
-        durationMs: Long,
-        album: String?,
-        sequence: List<LyricsSource>,
-    ): BiniLyrics.Hit? {
-        if (LyricsSource.BINI_LYRICS !in sequence) return null
-        val hit = withTimeoutOrNull(IDENTIFY_TIMEOUT_MS) {
-            runCatching { BiniLyrics.identify(title, artist, durationMs, album) }.getOrNull()
-        }
-        if (hit == null) return null
-        remember(videoId, hit.isrc)
-        return hit
-    }
 
     /** How many recordings to keep in hand; see [isrcs]. */
     private const val REMEMBERED = 100
@@ -297,6 +315,12 @@ object LyricsRepository {
             override fun removeEldestEntry(eldest: Map.Entry<String, String>) = size > REMEMBERED
         },
     )
+
+    internal fun rememberedIsrc(videoId: String): String? = isrcs[videoId]
+
+    internal fun clearRememberedIsrcsForTests() {
+        isrcs.clear()
+    }
 
     private fun remember(videoId: String, isrc: String?) {
         if (isrc.isNullOrBlank() || videoId.isEmpty()) return

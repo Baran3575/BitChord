@@ -48,8 +48,8 @@ import dev.chrisbanes.haze.HazeState
  *
  * It deliberately uses [PlayerDrawer], [ROW_SHAPE], and the same row geometry
  * as [AudioOutputSheet], so it behaves like another player destination rather
- * than a settings dialog. A row that the automatic lookup already completed is
- * entirely local: hits switch immediately and misses cannot be requested twice.
+ * than a settings dialog. Completed hits switch immediately from memory, while
+ * untouched or missed rows trigger a fresh lookup on tap.
  */
 @Composable
 internal fun LyricsProviderSheet(
@@ -94,6 +94,11 @@ internal fun LyricsProviderSheet(
     }
 }
 
+fun isLyricsProviderRowEnabled(
+    current: Boolean,
+    state: LyricsProviderState,
+): Boolean = !current
+
 @Composable
 private fun LyricsProviderRow(
     source: LyricsSource,
@@ -104,7 +109,8 @@ private fun LyricsProviderRow(
     val haptics = rememberHaptics()
     // A running automatic request can still be selected: it is marked as the
     // requested source and applied when that same in-flight call completes.
-    val enabled = !current && state != LyricsProviderState.NOT_FOUND
+    // Missed (NOT_FOUND) rows remain tappable so the listener can manually retry.
+    val enabled = isLyricsProviderRowEnabled(current, state)
     val status = when {
         current -> stringResource(Res.string.lyrics_provider_current)
         state == LyricsProviderState.FOUND -> stringResource(Res.string.lyrics_provider_found)

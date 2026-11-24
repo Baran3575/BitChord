@@ -2247,15 +2247,21 @@ class PlaybackService : MediaLibraryService() {
             // Only timed lines say when a loop is sung; the file's plain words can't.
             song.localUri?.let { EmbeddedLyrics.forUri(this@PlaybackService, it) }
                 ?.takeIf(EmbeddedLyrics::isSynced)
-                ?: LyricsRepository.lyrics(
-                    videoId = song.videoId,
-                    title = song.title,
-                    artist = song.artist,
-                    durationMs = durationMs,
-                    album = song.albumName,
-                    sources = AppSettings.lyricsSources.value,
-                    order = AppSettings.lyricsSourceOrder.value,
-                )?.lines
+                ?: run {
+                    val effectiveIsrc = song.isrc?.takeIf { it.isNotBlank() }
+                        ?: song.localUri?.let { EmbeddedLyrics.isrcForUri(this@PlaybackService, it) }
+                    LyricsRepository.lyrics(
+                        videoId = song.videoId,
+                        title = song.title,
+                        artist = song.artist,
+                        durationMs = durationMs,
+                        album = song.albumName,
+                        sources = AppSettings.lyricsSources.value,
+                        order = AppSettings.lyricsSourceOrder.value,
+                        prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                        isrc = effectiveIsrc,
+                    )?.lines
+                }
         }
     }
 
@@ -8726,6 +8732,8 @@ class PlaybackService : MediaLibraryService() {
             // them synced, which is all a lock-screen line can follow.
             var lines: List<LyricLine>? = embedded?.takeIf(EmbeddedLyrics::isSynced)
             if (lines == null) {
+                val effectiveIsrc = currentSong.isrc?.takeIf { it.isNotBlank() }
+                    ?: localUri?.let { EmbeddedLyrics.isrcForUri(this@PlaybackService, it) }
                 val found = LyricsRepository.lyrics(
                     videoId = currentSong.videoId,
                     title = currentSong.title,
@@ -8735,6 +8743,7 @@ class PlaybackService : MediaLibraryService() {
                     sources = AppSettings.lyricsSources.value,
                     order = AppSettings.lyricsSourceOrder.value,
                     prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                    isrc = effectiveIsrc,
                 )
                 lines = found?.lines?.takeIf(EmbeddedLyrics::isSynced) ?: embedded ?: found?.lines
             }

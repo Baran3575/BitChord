@@ -50,27 +50,47 @@ object Musixmatch {
         title: String,
         artist: String,
         durationMs: Long,
+        onIsrc: ((String) -> Unit)? = null,
+    ): List<LyricLine>? = lyricsInternal(
+        title = title,
+        artist = artist,
+        durationMs = durationMs,
+        onIsrc = onIsrc,
+    )
+
+    internal suspend fun lyricsInternal(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        onIsrc: ((String) -> Unit)? = null,
+        requestSigned: suspend ((String) -> okhttp3.HttpUrl) -> String? = ::signedGet,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
         val seconds = (durationMs / 1000).toInt()
-        val track = bestTrack(title, artist, seconds) ?: return@withContext null
+        val track = bestTrack(title, artist, seconds, requestSigned) ?: return@withContext null
+        LrcRed.normalizeIsrc(track.trackIsrc)?.let { onIsrc?.invoke(it) }
 
         // The subtitle endpoint is line-timed by design. Prefer the separate rich-sync
         // tier so tracks that have syllable data do not get flattened on ingestion.
         if (track.hasRichSync != 0) {
-            val rich = fetchRichSync(track.trackId)
+            val rich = fetchRichSync(track.trackId, requestSigned)
                 ?.let(::parseRichSyncBody)
                 ?.takeIf { lines -> lines.any { it.isWordSynced } }
             if (rich != null) return@withContext rich
         }
 
-        val subtitle = if (track.hasSubtitles != 0) fetchSubtitle(track.trackId) else null
+        val subtitle = if (track.hasSubtitles != 0) fetchSubtitle(track.trackId, requestSigned) else null
         val lrc = subtitle?.let(::subtitleToLrc)?.takeIf { it.isNotBlank() }
             ?: return@withContext null
         LrcLib.parseLrc(lrc).takeIf { it.isNotEmpty() }
     }
 
-    private suspend fun bestTrack(title: String, artist: String, seconds: Int): Track? {
-        val tracks = searchTrack(title, artist) ?: return null
+    private suspend fun bestTrack(
+        title: String,
+        artist: String,
+        seconds: Int,
+        requestSigned: suspend ((String) -> okhttp3.HttpUrl) -> String?,
+    ): Track? {
+        val tracks = searchTrack(title, artist, requestSigned) ?: return null
         return tracks.maxByOrNull { score(it, title, artist, seconds) }
     }
 
@@ -98,8 +118,12 @@ object Musixmatch {
         return score
     }
 
-    private suspend fun searchTrack(title: String, artist: String): List<Track>? {
-        val response = signedGet { token ->
+    private suspend fun searchTrack(
+        title: String,
+        artist: String,
+        requestSigned: suspend ((String) -> okhttp3.HttpUrl) -> String?,
+    ): List<Track>? {
+        val response = requestSigned { token ->
             "$BASE/track.search".toHttpUrl().newBuilder()
                 .addQueryParameter("app_id", APP_ID)
                 .addQueryParameter("format", "json")
@@ -119,8 +143,11 @@ object Musixmatch {
         return body.message.body?.trackList?.map { it.track }
     }
 
-    private suspend fun fetchSubtitle(trackId: Long): String? {
-        val response = signedGet { token ->
+    private suspend fun fetchSubtitle(
+        trackId: Long,
+        requestSigned: suspend ((String) -> okhttp3.HttpUrl) -> String?,
+    ): String? {
+        val response = requestSigned { token ->
             "$BASE/track.subtitle.get".toHttpUrl().newBuilder()
                 .addQueryParameter("app_id", APP_ID)
                 .addQueryParameter("format", "json")
@@ -134,8 +161,11 @@ object Musixmatch {
         }.getOrNull()?.message?.body?.subtitle?.subtitleBody
     }
 
-    private suspend fun fetchRichSync(trackId: Long): String? {
-        val response = signedGet { token ->
+    private suspend fun fetchRichSync(
+        trackId: Long,
+        requestSigned: suspend ((String) -> okhttp3.HttpUrl) -> String?,
+    ): String? {
+        val response = requestSigned { token ->
             "$BASE/track.richsync.get".toHttpUrl().newBuilder()
                 .addQueryParameter("app_id", APP_ID)
                 .addQueryParameter("format", "json")
@@ -313,11 +343,12 @@ object Musixmatch {
     private data class TrackWrapper(val track: Track)
 
     @Serializable
-    private data class Track(
+    internal data class Track(
         @SerialName("track_id") val trackId: Long,
         @SerialName("track_name") val trackName: String,
         @SerialName("artist_name") val artistName: String = "",
         @SerialName("track_length") val trackLength: Int? = null,
+        @SerialName("track_isrc") val trackIsrc: String? = null,
         @SerialName("has_subtitles") val hasSubtitles: Int? = null,
         @SerialName("has_richsync") val hasRichSync: Int? = null,
     )

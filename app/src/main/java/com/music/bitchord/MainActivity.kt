@@ -1228,19 +1228,61 @@ private fun BitChordApp(
     // Optimistically updated track for instant UI updates when switching versions
     var optimisticVersionSong by remember { mutableStateOf<Song?>(null) }
 
+    // ---- The track in the player ----
+    // Whatever started this track knew its title and its artwork, but rarely
+    // which album or artist page it belongs to. Fill that in while the player
+    // is actually up — when the sheet is raised, so playing an album from the
+    // mini player still costs nothing.
+    val playerShowing = showNowPlaying
+    var links by remember { mutableStateOf<Song?>(null) }
+    LaunchedEffect(player.song?.videoId, playerShowing) {
+        links = null
+        linksLoading = false
+        if (!playerShowing) return@LaunchedEffect
+        val current = player.song ?: return@LaunchedEffect
+        if (current.albumId != null && current.artistId != null && current.albumName != null) return@LaunchedEffect
+        linksLoading = true
+        links = YtMusicRepository.trackLinks(current.videoId).getOrNull()
+        linksLoading = false
+    }
+    val playerSong = player.song?.let { current ->
+        val extra = links?.takeIf { it.videoId == current.videoId } ?: return@let current
+        current.copy(
+            artistId = current.artistId ?: extra.artistId,
+            albumId = current.albumId ?: extra.albumId,
+            albumName = current.albumName ?: extra.albumName,
+            isrc = current.isrc ?: extra.isrc,
+        )
+    }
+    // The three-dot menu snapshots the track into songActions when it's opened,
+    // so a menu opened before the lookup above resolves would otherwise be
+    // stuck without album/artist rows even after the ids come in. Keep it in
+    // sync while it's showing this track.
+    LaunchedEffect(playerSong) {
+        if (playerSong != null && songActions?.videoId == playerSong.videoId) {
+            songActions = playerSong
+        }
+    }
+
     // Lyrics follow whatever is playing; duration lands a beat after the track.
     // Keyed on the lyric settings too, so turning a source on or off, reordering
     // them or changing the syllable preference applies to the track already
-    // playing rather than only the next one.
+    // playing rather than only the next one. Backfilled albumName and ISRC are
+    // forwarded so absent synced lyrics can recover once trackLinks resolves.
     val syncedLyricsEnabled by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val lyricsSourceOrder by AppSettings.lyricsSourceOrder.collectAsStateWithLifecycle()
     val prioritizeSyllableSync by AppSettings.prioritizeSyllableSync.collectAsStateWithLifecycle()
     LaunchedEffect(
         player.song?.videoId, player.durationMs, syncedLyricsEnabled, lyricsSources,
-        lyricsSourceOrder, prioritizeSyllableSync,
+        lyricsSourceOrder, prioritizeSyllableSync, playerSong?.albumName, playerSong?.isrc,
     ) {
         player.song?.let {
+            val albumForLyrics = lyricsAlbumForPlayer(
+                songAlbum = it.albumName,
+                backfilledAlbum = playerSong?.albumName,
+                currentLyrics = viewModel.lyrics.value,
+            )
             viewModel.loadLyrics(
                 it.videoId,
                 it.title,
@@ -1251,8 +1293,9 @@ private fun BitChordApp(
                 // and a lookup that waits for one waits for ever, which left
                 // the lyrics of a paused track loading until it was played.
                 player.durationMs.takeIf { ms -> ms > 0L } ?: it.durationMillis(),
-                it.albumName,
+                albumForLyrics,
                 it.localUri,
+                playerSong?.isrc ?: it.isrc,
             )
         }
     }
@@ -2573,41 +2616,6 @@ private fun BitChordApp(
     LaunchedEffect(yearStoryOpen) { if (yearStoryOpen) controller?.pause() }
     val replayCards = remember(replay.summary) {
         replay.summary?.takeUnless { it.isEmpty }?.cards(context).orEmpty()
-    }
-
-    // ---- The track in the player ----
-    // Whatever started this track knew its title and its artwork, but rarely
-    // which album or artist page it belongs to. Fill that in while the player
-    // is actually up — when the sheet is raised, so playing an album from the
-    // mini player still costs nothing.
-    val playerShowing = showNowPlaying
-    var links by remember { mutableStateOf<Song?>(null) }
-    LaunchedEffect(player.song?.videoId, playerShowing) {
-        links = null
-        linksLoading = false
-        if (!playerShowing) return@LaunchedEffect
-        val current = player.song ?: return@LaunchedEffect
-        if (current.albumId != null && current.artistId != null) return@LaunchedEffect
-        linksLoading = true
-        links = YtMusicRepository.trackLinks(current.videoId).getOrNull()
-        linksLoading = false
-    }
-    val playerSong = player.song?.let { current ->
-        val extra = links?.takeIf { it.videoId == current.videoId } ?: return@let current
-        current.copy(
-            artistId = current.artistId ?: extra.artistId,
-            albumId = current.albumId ?: extra.albumId,
-            albumName = current.albumName ?: extra.albumName,
-        )
-    }
-    // The three-dot menu snapshots the track into songActions when it's opened,
-    // so a menu opened before the lookup above resolves would otherwise be
-    // stuck without album/artist rows even after the ids come in. Keep it in
-    // sync while it's showing this track.
-    LaunchedEffect(playerSong) {
-        if (playerSong != null && songActions?.videoId == playerSong.videoId) {
-            songActions = playerSong
-        }
     }
 
     // The player's whole parameter list, kept apart from the sheet that
@@ -6669,3 +6677,16 @@ private suspend fun LazyListState.scrollToTopEased() {
 
 /** Safely converts a nullable Float to non-null, defaulting to 0f for null. */
 private fun Float?.orZero(): Float = this ?: 0f
+
+internal fun lyricsAlbumForPlayer(
+    songAlbum: String?,
+    backfilledAlbum: String?,
+    currentLyrics: List<com.music.bitchord.data.lyrics.LyricLine>?,
+): String? {
+    val syncedPresent = currentLyrics?.let(com.music.bitchord.data.lyrics.EmbeddedLyrics::isSynced) == true
+    return if (syncedPresent) {
+        songAlbum ?: backfilledAlbum
+    } else {
+        backfilledAlbum ?: songAlbum
+    }
+}

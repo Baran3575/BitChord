@@ -123,6 +123,8 @@ object BestParts {
                     ?.let { EmbeddedLyrics.forUri(context, it) }
                     ?.takeIf(EmbeddedLyrics::isSynced)
                     ?: if (durationMs > 0) {
+                        val effectiveIsrc = song.isrc?.takeIf { it.isNotBlank() }
+                            ?: song.localUri?.let { EmbeddedLyrics.isrcForUri(context, it) }
                         LyricsRepository.lyrics(
                             videoId = song.videoId,
                             title = song.title,
@@ -131,6 +133,8 @@ object BestParts {
                             album = song.albumName,
                             sources = AppSettings.lyricsSources.value,
                             order = AppSettings.lyricsSourceOrder.value,
+                            prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                            isrc = effectiveIsrc,
                         )?.lines?.takeIf(EmbeddedLyrics::isSynced)
                     } else {
                         null
