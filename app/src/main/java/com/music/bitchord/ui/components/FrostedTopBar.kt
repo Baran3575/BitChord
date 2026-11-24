@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -329,7 +330,10 @@ fun FrostedTopBar(
             ) {
                 if (accessory != null) {
                     Box(Modifier.weight(1f)) {
-                        AccessoryPill(content = accessory)
+                        AccessoryPill(
+                            hazeState = backButtonHazeState,
+                            content = accessory,
+                        )
                     }
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
@@ -383,6 +387,13 @@ private fun ArtworkPageActions(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
+        glassContentColor()
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
     ActionsRow(
         modifier = modifier
             .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
@@ -403,7 +414,10 @@ private fun ArtworkPageActions(
     ) {
         // Apple's pill is as tall as its back button, 44pt, where the actions'
         // own 48dp touch targets stood it 4dp taller than the circle beside it.
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+        CompositionLocalProvider(
+            LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE,
+            LocalContentColor provides contentColor,
+        ) {
             content()
         }
     }
@@ -441,25 +455,60 @@ private fun ActionsRow(modifier: Modifier, content: @Composable () -> Unit) {
 
 /**
  * The bar's accessory — the Search tab's field — as a squircle pill at the
- * height of the controls beside it, in the field's own solid fill.
- *
- * Deliberately the same with Liquid Glass on as off: the field is somewhere
- * to type, and on glass its hint and text took the glass's content colour
- * over whatever page was scrolling under it. The controls beside it still
- * follow the glass setting.
+ * height of the controls beside it, rendered through [artworkPageSurface] so
+ * both top-bar pills share identical glass, Haze, or solid fallback materials
+ * and matching hairline rims.
  */
 @Composable
-private fun AccessoryPill(content: @Composable () -> Unit) {
+private fun AccessoryPill(
+    hazeState: HazeState?,
+    content: @Composable () -> Unit,
+) {
     val shape = remember { SquirclePillShape() }
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val fieldColors = topBarSearchFieldColors(
+        useLiquidGlass = useLiquidGlass && !reduceDynamicBlur,
+        isLightSurface = isLightGlassSurface(MaterialTheme.colorScheme.surface),
+        onSurface = MaterialTheme.colorScheme.onSurface,
+        primary = MaterialTheme.colorScheme.primary,
+    )
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(TOP_CONTROL_SIZE)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
     ) {
-        CompositionLocalProvider(LocalSearchFieldOnSurface provides true, content = content)
+        CompositionLocalProvider(
+            LocalSearchFieldOnSurface provides true,
+            LocalSearchFieldColors provides fieldColors,
+            content = content,
+        )
     }
+}
+
+internal fun topBarSearchFieldColors(
+    useLiquidGlass: Boolean,
+    isLightSurface: Boolean,
+    onSurface: Color,
+    primary: Color,
+): SearchFieldColors = if (useLiquidGlass) {
+    val content = glassContentColor(isLightSurface)
+    val secondary = glassSecondaryContentColor(isLightSurface)
+    SearchFieldColors(
+        textColor = content,
+        placeholderColor = secondary,
+        iconColor = secondary,
+        cursorColor = content,
+    )
+} else {
+    val secondary = hazeSecondaryContentColor(onSurface)
+    SearchFieldColors(
+        textColor = onSurface,
+        placeholderColor = secondary,
+        iconColor = secondary,
+        cursorColor = primary,
+    )
 }
 
 /**
@@ -498,8 +547,9 @@ private fun artworkPageSurface(
         .clip(shape)
         .then(
             when {
+                reduceDynamicBlur -> Modifier.background(container)
                 useLiquidGlass -> Modifier.liquidGlass(shape)
-                reduceDynamicBlur || hazeState == null -> Modifier.background(container)
+                hazeState == null -> Modifier.background(container)
                 else -> Modifier.optimizedHazeEffect(
                     state = hazeState,
                     style = HazeMaterials.regular(container),
@@ -509,7 +559,7 @@ private fun artworkPageSurface(
         // Keep the same explicit hairline as FloatingBottomBar. Liquid glass
         // also has its refractive highlight, but the navbar retains this edge
         // so these surfaces do as well.
-        .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+        .border(GLASS_EDGE_WIDTH, glassEdgeColor(), shape)
 }
 
 /**

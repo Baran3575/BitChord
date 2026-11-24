@@ -109,11 +109,45 @@ object ColorUtils {
 
     /** Relative luminance, 0 for black and 1 for white. */
     fun calculateLuminance(color: Int): Double {
-        val sr = linear(((color shr 16) and 0xFF) / 255.0)
-        val sg = linear(((color shr 8) and 0xFF) / 255.0)
+        val sr = linear(((color ushr 16) and 0xFF) / 255.0)
+        val sg = linear(((color ushr 8) and 0xFF) / 255.0)
         val sb = linear((color and 0xFF) / 255.0)
         // The Y of XYZ, which is what ColorUtils returns (divided back out of 100).
         return (100 * (sr * 0.2126 + sg * 0.7152 + sb * 0.0722)) / 100
+    }
+
+    /** Alpha-composites [foreground] over [background] in sRGB, matching AndroidX ColorUtils. */
+    fun compositeColors(foreground: Int, background: Int): Int {
+        val bgAlpha = (background ushr 24) and 0xFF
+        val fgAlpha = (foreground ushr 24) and 0xFF
+        val a = compositeAlpha(fgAlpha, bgAlpha)
+        val r = compositeComponent((foreground ushr 16) and 0xFF, fgAlpha, (background ushr 16) and 0xFF, bgAlpha, a)
+        val g = compositeComponent((foreground ushr 8) and 0xFF, fgAlpha, (background ushr 8) and 0xFF, bgAlpha, a)
+        val b = compositeComponent(foreground and 0xFF, fgAlpha, background and 0xFF, bgAlpha, a)
+        return (a shl 24) or (r shl 16) or (g shl 8) or b
+    }
+
+    /** WCAG 2.1 contrast ratio between [foreground] (composited if translucent) and opaque [background]. */
+    fun calculateContrast(foreground: Int, background: Int): Double {
+        require(((background ushr 24) and 0xFF) == 0xFF) {
+            "background can not be translucent: #${background.toUInt().toString(16)}"
+        }
+        val fg = if (((foreground ushr 24) and 0xFF) < 0xFF) {
+            compositeColors(foreground, background)
+        } else {
+            foreground
+        }
+        val luminance1 = calculateLuminance(fg) + 0.05
+        val luminance2 = calculateLuminance(background) + 0.05
+        return max(luminance1, luminance2) / min(luminance1, luminance2)
+    }
+
+    private fun compositeAlpha(foregroundAlpha: Int, backgroundAlpha: Int): Int =
+        0xFF - (((0xFF - backgroundAlpha) * (0xFF - foregroundAlpha)) / 0xFF)
+
+    private fun compositeComponent(fgC: Int, fgA: Int, bgC: Int, bgA: Int, a: Int): Int {
+        if (a == 0) return 0
+        return ((0xFF * fgC * fgA) + (bgC * bgA * (0xFF - fgA))) / (a * 0xFF)
     }
 
     private fun linear(channel: Double): Double =
