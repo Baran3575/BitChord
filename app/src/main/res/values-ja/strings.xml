@@ -1537,4 +1537,10 @@
     <string name="drive_backup_row_subtitle">Replay をすべてのデバイスでバックアップ・同期</string>
     <string name="drive_over_cellular">モバイルデータで同期</string>
     <string name="drive_over_cellular_subtitle">オフの場合、自動同期は Wi-Fi 接続を待ちます</string>
+    <string name="betterlyrics_api_key">BetterLyrics API key</string>
+    <string name="betterlyrics_api_key_configured">BetterLyrics API key — configured</string>
+    <string name="betterlyrics_api_key_missing">BetterLyrics API key — optional, unlocks uncached lookups</string>
+    <string name="lyrics_api_key_badge_set">Set</string>
+    <string name="lyrics_api_key_badge_optional">Optional</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
 </resources>

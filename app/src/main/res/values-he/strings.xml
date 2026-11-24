@@ -1565,4 +1565,10 @@
     <string name="drive_backup_row_subtitle">גיבוי וסנכרון של Replay בין המכשירים שלך</string>
     <string name="drive_over_cellular">סנכרון בחבילת גלישה</string>
     <string name="drive_over_cellular_subtitle">כשכבוי, סנכרונים אוטומטיים ממתינים ל-Wi-Fi</string>
+    <string name="betterlyrics_api_key">BetterLyrics API key</string>
+    <string name="betterlyrics_api_key_configured">BetterLyrics API key — configured</string>
+    <string name="betterlyrics_api_key_missing">BetterLyrics API key — optional, unlocks uncached lookups</string>
+    <string name="lyrics_api_key_badge_set">Set</string>
+    <string name="lyrics_api_key_badge_optional">Optional</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
 </resources>

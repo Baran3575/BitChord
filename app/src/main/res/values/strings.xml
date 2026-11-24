@@ -1501,4 +1501,10 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+    <string name="betterlyrics_api_key">BetterLyrics API key</string>
+    <string name="betterlyrics_api_key_configured">BetterLyrics API key — configured</string>
+    <string name="betterlyrics_api_key_missing">BetterLyrics API key — optional, unlocks uncached lookups</string>
+    <string name="lyrics_api_key_badge_set">Set</string>
+    <string name="lyrics_api_key_badge_optional">Optional</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
 </resources>

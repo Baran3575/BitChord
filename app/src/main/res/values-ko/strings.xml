@@ -1409,4 +1409,10 @@
     <string name="drive_backup_row_subtitle">모든 기기에서 Replay 백업 및 동기화</string>
     <string name="drive_over_cellular">모바일 데이터로 동기화</string>
     <string name="drive_over_cellular_subtitle">끄면 자동 동기화가 Wi-Fi를 기다립니다</string>
+    <string name="betterlyrics_api_key">BetterLyrics API key</string>
+    <string name="betterlyrics_api_key_configured">BetterLyrics API key — configured</string>
+    <string name="betterlyrics_api_key_missing">BetterLyrics API key — optional, unlocks uncached lookups</string>
+    <string name="lyrics_api_key_badge_set">Set</string>
+    <string name="lyrics_api_key_badge_optional">Optional</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
 </resources>

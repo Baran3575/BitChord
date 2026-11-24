@@ -12,6 +12,7 @@
 export const LYRIC_ORIGINS = [
   'https://lrc.red',
   'https://lyrics-api.binimum.org',
+  'https://api.betterlyrics.org',
   'https://lyrics-api.boidu.dev',
   'https://unison.boidu.dev',
   'https://lyrics.paxsenix.org',

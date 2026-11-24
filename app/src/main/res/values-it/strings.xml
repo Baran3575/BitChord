@@ -1499,4 +1499,10 @@
     <string name="drive_backup_row_subtitle">Backup e sincronizzazione di Replay tra i tuoi dispositivi</string>
     <string name="drive_over_cellular">Sincronizza con dati mobili</string>
     <string name="drive_over_cellular_subtitle">Se disattivato, le sincronizzazioni automatiche attendono il Wi-Fi</string>
+    <string name="betterlyrics_api_key">BetterLyrics API key</string>
+    <string name="betterlyrics_api_key_configured">BetterLyrics API key — configured</string>
+    <string name="betterlyrics_api_key_missing">BetterLyrics API key — optional, unlocks uncached lookups</string>
+    <string name="lyrics_api_key_badge_set">Set</string>
+    <string name="lyrics_api_key_badge_optional">Optional</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
 </resources>

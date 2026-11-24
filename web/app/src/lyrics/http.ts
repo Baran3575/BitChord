@@ -23,6 +23,7 @@ export const LYRIC_EXTENSION_ORIGINS = [
   'https://music.apple.com',
   'https://amp-api.music.apple.com',
   'https://api.paxsenix.org',
+  'https://api.betterlyrics.org',
   'https://lyrics-api.boidu.dev',
   'https://unison.boidu.dev',
 ];

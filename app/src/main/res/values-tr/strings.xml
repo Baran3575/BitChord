@@ -1517,4 +1517,10 @@
     <string name="drive_backup_row_subtitle">Replay\'i tüm cihazlarınızda yedekleyin ve eşitleyin</string>
     <string name="drive_over_cellular">Mobil veriyle eşitle</string>
     <string name="drive_over_cellular_subtitle">Kapalıyken otomatik eşitlemeler Wi-Fi\'ı bekler</string>
+    <string name="betterlyrics_api_key">BetterLyrics API anahtarı</string>
+    <string name="betterlyrics_api_key_configured">BetterLyrics API anahtarı — yapılandırıldı</string>
+    <string name="betterlyrics_api_key_missing">BetterLyrics API anahtarı — isteğe bağlı, önbellekte olmayan şarkılar için</string>
+    <string name="lyrics_api_key_badge_set">Aktif</string>
+    <string name="lyrics_api_key_badge_optional">İsteğe bağlı</string>
+    <string name="lyrics_word_synced_badge">Kelime senkronlu</string>
 </resources>

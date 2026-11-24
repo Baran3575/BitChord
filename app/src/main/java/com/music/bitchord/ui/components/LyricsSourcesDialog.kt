@@ -2,7 +2,9 @@ package com.music.bitchord.ui.components
 
 import com.music.bitchord.R
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.rememberScrollState
@@ -19,12 +21,14 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -40,8 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -50,11 +52,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,7 +97,9 @@ fun LyricsSourcesDialog(
     val savedOrder by AppSettings.lyricsSourceOrder.collectAsStateWithLifecycle()
     val prioritizeSyllableSync by AppSettings.prioritizeSyllableSync.collectAsStateWithLifecycle()
     val paxSenixApiKey by AppSettings.paxSenixApiKey.collectAsStateWithLifecycle()
+    val betterLyricsApiKey by AppSettings.betterLyricsApiKey.collectAsStateWithLifecycle()
     var showPaxSenixKeyDialog by remember { mutableStateOf(false) }
+    var showBetterLyricsKeyDialog by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(ALERT_CORNER)
 
     Box(
@@ -124,6 +128,10 @@ fun LyricsSourcesDialog(
                             style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
                         )
                     },
+                )
+                .border(
+                    BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
+                    shape,
                 )
                 // Swallows the tap before it reaches the scrim behind, so
                 // touching the card itself never dismisses it.
@@ -155,7 +163,7 @@ fun LyricsSourcesDialog(
                         fontSize = 13.sp,
                         lineHeight = 17.sp,
                     ),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
                     textAlign = TextAlign.Center,
                 )
             }
@@ -186,7 +194,22 @@ fun LyricsSourcesDialog(
             )
 
             AlertRule()
-            PaxSenixApiKeyRow(
+            ApiKeyRow(
+                title = stringResource(R.string.betterlyrics_api_key),
+                subtitle = stringResource(
+                    if (betterLyricsApiKey.isNotBlank()) R.string.betterlyrics_api_key_configured
+                    else R.string.betterlyrics_api_key_missing,
+                ),
+                configured = betterLyricsApiKey.isNotBlank(),
+                onClick = { showBetterLyricsKeyDialog = true },
+            )
+            AlertRule()
+            ApiKeyRow(
+                title = stringResource(R.string.paxsenix_api_key),
+                subtitle = stringResource(
+                    if (paxSenixApiKey.isNotBlank()) R.string.paxsenix_api_key_configured
+                    else R.string.paxsenix_api_key_missing,
+                ),
                 configured = paxSenixApiKey.isNotBlank(),
                 onClick = { showPaxSenixKeyDialog = true },
             )
@@ -207,42 +230,74 @@ fun LyricsSourcesDialog(
         }
     }
 
+    if (showBetterLyricsKeyDialog) {
+        ApiKeyInputDialog(
+            title = stringResource(R.string.betterlyrics_api_key),
+            initialValue = betterLyricsApiKey,
+            onSave = {
+                AppSettings.setBetterLyricsApiKey(it)
+                showBetterLyricsKeyDialog = false
+            },
+            onDismiss = { showBetterLyricsKeyDialog = false },
+        )
+    }
+
     if (showPaxSenixKeyDialog) {
-        var input by remember(paxSenixApiKey) { mutableStateOf(paxSenixApiKey) }
-        AlertDialog(
-            onDismissRequest = { showPaxSenixKeyDialog = false },
-            title = { Text(stringResource(R.string.paxsenix_api_key)) },
-            text = {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        ApiKeyInputDialog(
+            title = stringResource(R.string.paxsenix_api_key),
+            initialValue = paxSenixApiKey,
+            onSave = {
+                AppSettings.setPaxSenixApiKey(it)
+                showPaxSenixKeyDialog = false
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    AppSettings.setPaxSenixApiKey(input)
-                    showPaxSenixKeyDialog = false
-                }) { Text(stringResource(R.string.save)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPaxSenixKeyDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
+            onDismiss = { showPaxSenixKeyDialog = false },
         )
     }
 }
 
-/** The PaxSenix key: its name, and under it whether one is set. */
 @Composable
-private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
+private fun ApiKeyInputDialog(
+    title: String,
+    initialValue: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var input by remember(initialValue) { mutableStateOf(initialValue) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(input) }) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+/** Optional provider API key row with a compact status badge. */
+@Composable
+private fun ApiKeyRow(
+    title: String,
+    subtitle: String,
+    configured: Boolean,
+    onClick: () -> Unit,
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     Row(
@@ -262,19 +317,39 @@ private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.paxsenix_api_key),
+                text = title,
                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = stringResource(
-                    if (configured) R.string.paxsenix_api_key_configured
-                    else R.string.paxsenix_api_key_missing,
-                ),
+                text = subtitle,
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(
+                    if (configured) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                )
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        ) {
+            Text(
+                text = stringResource(
+                    if (configured) R.string.lyrics_api_key_badge_set
+                    else R.string.lyrics_api_key_badge_optional,
+                ),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                color = if (configured) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
             )
         }
     }
@@ -368,16 +443,6 @@ private fun ReorderableSourceList(
     /** Which slot of [liveOrder] it began on. */
     var startIndex by remember { mutableStateOf(0) }
 
-    // The distance from one row's top to the next one's — which is the row
-    // *plus* the hairline above it, not the row alone. Measured off a wrapper
-    // holding both, because measuring the row by itself left every swap
-    // short by the width of a rule and the error compounded down the list.
-    //
-    // All the rows are the same height by construction (one line of label,
-    // one of detail, both capped), so whichever reports last is as good as
-    // any other; [lockedPitchPx] then freezes it for the duration of a
-    // gesture, so a relayout mid-drag can't move the boundaries the drag is
-    // being measured against underneath it.
     var pitchPx by remember { mutableStateOf(0f) }
     var lockedPitchPx by remember { mutableStateOf(0f) }
 
@@ -388,14 +453,6 @@ private fun ReorderableSourceList(
     val edgeZonePx = with(density) { SOURCE_EDGE_SCROLL_ZONE.toPx() }
     val edgeSpeedPx = with(density) { SOURCE_EDGE_SCROLL_SPEED.toPx() }
 
-    // Because [totalDrag] and [startIndex] are the only state a swap needs
-    // (see the class doc above), scrolling the card by some amount and adding
-    // that same amount to [totalDrag] cancel out exactly: the row's position
-    // relative to the *content* moves with the scroll, but its position in
-    // the *viewport* — which is what the finger is actually holding — does
-    // not. Every pixel the auto-scroll below moves the card is fed back
-    // through here for exactly that reason, the same way a real further drag
-    // would be.
     fun advanceDrag(delta: Float) {
         val source = draggedSource ?: return
         val pitch = lockedPitchPx
@@ -403,17 +460,11 @@ private fun ReorderableSourceList(
         var index = liveOrder.indexOf(source)
         if (index < 0) return
 
-        // Held past either end the row stops there under the finger, rather
-        // than running off the list and having to be dragged all the way back
-        // before it answers again.
         totalDrag = (totalDrag + delta).coerceIn(
             -startIndex * pitch,
             (liveOrder.lastIndex - startIndex) * pitch,
         )
 
-        // A loop, not an `if`: one pointer event — or one frame of
-        // auto-scroll — can cover several rows when it's quick, and settling
-        // one row per event would leave the list trailing behind it.
         while (true) {
             val travelled = totalDrag / pitch
             val moved = (index - startIndex).toFloat()
@@ -428,10 +479,6 @@ private fun ReorderableSourceList(
             }
         }
 
-        // Read fresh off the same numbers [advanceDrag] just moved, rather
-        // than tracked separately: the row's top in the viewport is its
-        // content position — [startIndex] times the pitch, plus how far it has
-        // travelled — less however far the card itself has scrolled.
         val top = startIndex * pitch + totalDrag - scrollState.value
         val speed = edgeScrollSpeed(
             top = top,
@@ -449,9 +496,6 @@ private fun ReorderableSourceList(
         autoScroll.setSpeed(if (blocked) 0f else speed)
     }
 
-    // Runs only while [autoScroll] is pointed somewhere — see
-    // [rememberQueueDrag] in the main queue for the same shape of loop,
-    // scrolling a different kind of list.
     LaunchedEffect(autoScroll.dir) {
         if (autoScroll.dir == 0) return@LaunchedEffect
         scrollState.scroll {
@@ -474,34 +518,12 @@ private fun ReorderableSourceList(
         modifier = Modifier
             .heightIn(max = dynamicMaxHeight)
             .clipToBounds()
-            // Measured outside [verticalScroll] on purpose: inside it, this
-            // would report the full, unclipped height of every row stacked up
-            // rather than the capped card height, since verticalScroll gives
-            // its child unbounded height to grow into. That made the bottom
-            // edge of the auto-scroll zone measure against a boundary far
-            // below the real one, so it only ever triggered scrolling toward
-            // the top of the list where the zone is anchored to the fixed 0
-            // rather than to this height.
             .onSizeChanged { viewportHeightPx = it.height.toFloat() }
             .verticalScroll(scrollState),
     ) {
         liveOrder.forEach { source ->
-            // Without this, Compose matches each row to its slot by position
-            // rather than by which source it is — so the instant a swap moved
-            // a different [LyricsSource] into the slot the finger was on,
-            // that slot's `pointerInput` saw its key change and restarted the
-            // coroutine mid-gesture, which is indistinguishable from letting
-            // go: the touch kept moving but nothing was listening anymore,
-            // and the drag stalled one swap after it started. Keying the
-            // whole row on the value it represents is what keeps *this
-            // composable*, gesture and all, following that value from slot to
-            // slot instead of being torn down and rebuilt in place.
             key(source) {
                 val checked = source in selected
-                // The last one enabled can't be unticked — see the guard in
-                // [onToggle] — so it reads the same disabled way the toggle
-                // itself already treats it, rather than looking clickable and
-                // silently doing nothing.
                 val toggleable = !checked || selected.size > 1
                 val dragging = source == draggedSource
                 Column(
@@ -509,16 +531,11 @@ private fun ReorderableSourceList(
                         .fillMaxWidth()
                         .zIndex(if (dragging) 1f else 0f)
                         .onSizeChanged { pitchPx = it.height.toFloat() }
+                        .background(
+                            if (dragging) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                            else Color.Transparent,
+                        )
                         .graphicsLayer {
-                            // Read here rather than in composition: this runs
-                            // once a frame in the draw phase, so a drag moves
-                            // the row without recomposing the list at all.
-                            //
-                            // The row sits wherever the finger has carried it
-                            // from where it was picked up, less whatever the
-                            // swaps have already moved its slot — so a swap
-                            // relocates the slot and shortens this offset by
-                            // exactly as much, and the row does not budge.
                             translationY = if (dragging) {
                                 totalDrag - (liveOrder.indexOf(source) - startIndex) * lockedPitchPx
                             } else {
@@ -543,16 +560,10 @@ private fun ReorderableSourceList(
                         Icon(
                             imageVector = Icons.Rounded.DragHandle,
                             contentDescription = stringResource(R.string.drag_to_reorder),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dragging) 0.70f else 0.35f),
                             modifier = Modifier
                                 .padding(horizontal = 6.dp)
                                 .size(18.dp)
-                                // A constant key on purpose — see the note above.
-                                // The row this coroutine belongs to is now pinned
-                                // by [key], so nothing about a reorder should ever
-                                // restart it; only the handle's own identity
-                                // (there is exactly one, for its whole lifetime)
-                                // needs to.
                                 .pointerInput(Unit) {
                                     detectDragGestures(
                                         onDragStart = {
@@ -582,14 +593,36 @@ private fun ReorderableSourceList(
                                 },
                         )
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                text = source.label,
-                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                                color = MaterialTheme.colorScheme.onSurface
-                                    .copy(alpha = if (toggleable) 1f else 0.5f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = source.label,
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                        .copy(alpha = if (toggleable) 1f else 0.5f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                if (source.wordSynced) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.lyrics_word_synced_badge),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                            ),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
                             Text(
                                 text = source.detail,
                                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
@@ -614,39 +647,11 @@ private fun ReorderableSourceList(
     }
 }
 
-/**
- * How far past a neighbour the finger has to carry a row before the two trade
- * places, as a share of one row's pitch.
- *
- * Deliberately more than half. At exactly half, a row that has just swapped
- * lands with its offset sitting precisely on the boundary of swapping *back* —
- * so a single pixel of the shake any real finger has flipped it, and the
- * compensating shift put it straight back on the forward boundary again. The
- * row juddered between two slots for as long as it was held near a crossing,
- * which is the "loops up and down in the same position" this fixes. Anything
- * over half opens a gap between the two boundaries; a tenth of a row is enough
- * to swallow the shake without the swap feeling reluctant.
- */
 private const val SWAP_THRESHOLD = 0.6f
-
-/** How tall the source list may get before it scrolls inside the card. */
 private val SOURCES_MAX_HEIGHT = 340.dp
-
-/**
- * Held within this of the top or bottom edge of the card, the list scrolls
- * itself at up to [SOURCE_EDGE_SCROLL_SPEED] — the same shape of auto-scroll
- * as the main queue's, sized down for a card a few rows tall rather than a
- * screen-filling list.
- */
 private val SOURCE_EDGE_SCROLL_ZONE = 28.dp
 private val SOURCE_EDGE_SCROLL_SPEED = 220.dp
 
-/**
- * Which way [ReorderableSourceList] is scrolling its card while a row is held
- * near one of its edges, and how fast — [dir] is state because it is what
- * starts and stops the auto-scroll loop; [speed] deliberately is not, since it
- * changes with every pixel of drag travel and only that loop ever reads it.
- */
 private class SourceDragAutoScroll {
     var dir by mutableIntStateOf(0)
         private set

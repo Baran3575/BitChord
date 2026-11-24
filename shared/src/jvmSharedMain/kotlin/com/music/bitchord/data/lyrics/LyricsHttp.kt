@@ -20,6 +20,11 @@ internal const val LYRICS_AGENT = "BitChord (https://github.com/bitchord)"
 
 val lyricsJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
+/** Minimal HTTP response wrapper for providers that inspect status codes (401/403/429/5xx). */
+internal data class LyricsHttpResponse(val code: Int, val body: String?) {
+    val isSuccessful: Boolean get() = code in 200..299
+}
+
 private val client by lazy {
     // Derived from the shared client, so the connection pool and DNS stay
     // common — only the deadline differs.
@@ -48,6 +53,35 @@ internal fun lyricsGet(url: String): String? = runCatching {
         .build()
     client.newCall(request).execute().use { response ->
         if (response.isSuccessful) response.body?.string() else null
+    }
+}.getOrNull()
+
+/**
+ * Executes a GET with optional [extraHeaders] (allowing providers to override
+ * `User-Agent` or attach `X-API-Key`) and returns the status code alongside
+ * the body on 2xx responses, or null on transport failure.
+ */
+internal fun lyricsGetResponse(
+    url: String,
+    extraHeaders: Map<String, String> = emptyMap(),
+    authenticated: Boolean = false,
+): LyricsHttpResponse? = runCatching {
+    val builder = Request.Builder().url(url)
+    if (extraHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+        builder.header("User-Agent", LYRICS_AGENT)
+    }
+    if (extraHeaders.keys.none { it.equals("Accept", ignoreCase = true) }) {
+        builder.header("Accept", "application/json")
+    }
+    extraHeaders.forEach { (name, value) ->
+        if (value.isNotBlank()) builder.header(name, value)
+    }
+    val http = if (authenticated) authenticatedClient else client
+    http.newCall(builder.build()).execute().use { response ->
+        LyricsHttpResponse(
+            code = response.code,
+            body = if (response.isSuccessful) response.body?.string() else null,
+        )
     }
 }.getOrNull()
 
