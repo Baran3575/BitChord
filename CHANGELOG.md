@@ -21,4 +21,5 @@
 - Bumped phone, Wear OS, and Android TV versions to `1.10.1` (`versionCode = 43`).
 - Backfilled missing v1.10 localization keys across all 17 non-English Android locales so `LocaleStringsTest` passes across every language.
 - Pointed `AppUpdateChecker` to `BuildConfig.UPDATE_REPO` (`Baran3575/BitChord` by default) so in-app updates preserve fork customizations and signing continuity.
+- Configured parallel production package IDs (`com.music.bitchord.plus` / `BitChord+` for phone & Wear OS, `com.music.bitchord.plus.tv` / `BitChord+ TV` for Android TV) so releases install side-by-side alongside original BitChord.
 - Added `.github/workflows/upstream-sync.yml` (automated conflict-checked upstream merges from `kushagrasinghx/BitChord@main` into `Main2`), `.github/workflows/release.yml` (tagged Phone/TV/Wear APK releases), and updated `.github/workflows/android.yml` to build safely on `Main2`.

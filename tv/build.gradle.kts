@@ -174,7 +174,8 @@ android {
         }
         create("prod") {
             dimension = "env"
-            resValue("string", "app_name", "BitChord TV")
+            applicationId = "com.music.bitchord.plus.tv"
+            resValue("string", "app_name", "BitChord+ TV")
         }
     }
 

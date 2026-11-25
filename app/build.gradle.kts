@@ -156,7 +156,10 @@ android {
         }
         create("prod") {
             dimension = "env"
-            // Matches defaultConfig — this is the package already shipped/installed.
+            // Distinct package id so the fork release installs side-by-side
+            // with upstream BitChord without signature conflicts.
+            applicationId = "com.music.bitchord.plus"
+            resValue("string", "app_name", "BitChord+")
         }
     }
 
