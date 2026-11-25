@@ -590,7 +590,7 @@ internal fun LyricsStatusWithChange(
                             haptics.play(Haptic.Select)
                             onStatusClick()
                         }
-                        .padding(start = 11.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
+                        .padding(start = 11.dp, end = 7.dp, top = 3.dp, bottom = 3.dp)
                 } else {
                     Modifier
                 },
@@ -601,7 +601,10 @@ internal fun LyricsStatusWithChange(
             Text(
                 text = status,
                 style = if (onStatusClick != null) {
-                    MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium)
+                    MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = 18.sp,
+                    )
                 } else {
                     MaterialTheme.typography.titleMedium
                 },

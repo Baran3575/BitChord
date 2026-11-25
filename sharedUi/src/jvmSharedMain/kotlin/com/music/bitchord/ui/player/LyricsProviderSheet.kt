@@ -15,12 +15,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Refresh
@@ -43,7 +41,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.sharedui.resources.*
@@ -56,9 +53,9 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Manual provider chooser for the lyrics half-player.
  *
- * Uses [PlayerDrawer] and [ROW_SHAPE] with elevated frosted cards,
- * word-synced quality badges, provider descriptions, tactile press feedback,
- * and tap-to-retry support on missed rows.
+ * Uses [PlayerDrawer] and [ROW_SHAPE] with clean two-line rows (provider name
+ * and status), subtle frosted borders, tactile press feedback, and tap-to-retry
+ * support on missed rows.
  */
 @Composable
 internal fun LyricsProviderSheet(
@@ -84,7 +81,7 @@ internal fun LyricsProviderSheet(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             sources.forEach { source ->
                 LyricsProviderRow(
@@ -102,8 +99,6 @@ internal fun LyricsProviderSheet(
         }
     }
 }
-
-private val SYNC_BADGE_SHAPE = RoundedCornerShape(50)
 
 @Composable
 private fun LyricsProviderRow(
@@ -131,21 +126,21 @@ private fun LyricsProviderRow(
     }
 
     val containerAlpha = when {
-        current -> 0.14f
-        pressed && enabled -> 0.12f
+        current -> 0.13f
+        pressed && enabled -> 0.11f
         state == LyricsProviderState.NOT_FOUND -> 0.035f
-        else -> 0.06f
+        else -> 0.055f
     }
     val borderAlpha = when {
-        current -> 0.30f
-        state == LyricsProviderState.FOUND -> 0.15f
-        else -> 0.07f
+        current -> 0.28f
+        state == LyricsProviderState.FOUND -> 0.14f
+        else -> 0.06f
     }
     val iconBgAlpha = when {
-        current -> 0.22f
-        state == LyricsProviderState.FOUND -> 0.14f
-        state == LyricsProviderState.NOT_FOUND -> 0.06f
-        else -> 0.09f
+        current -> 0.20f
+        state == LyricsProviderState.FOUND -> 0.12f
+        state == LyricsProviderState.NOT_FOUND -> 0.05f
+        else -> 0.08f
     }
 
     Row(
@@ -157,7 +152,7 @@ private fun LyricsProviderRow(
             }
             .clip(ROW_SHAPE)
             .background(Color.White.copy(alpha = containerAlpha))
-            .border(BorderStroke(1.dp, Color.White.copy(alpha = borderAlpha)), ROW_SHAPE)
+            .border(BorderStroke(0.75.dp, Color.White.copy(alpha = borderAlpha)), ROW_SHAPE)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -185,7 +180,7 @@ private fun LyricsProviderRow(
                 current || state == LyricsProviderState.FOUND -> Icon(
                     imageVector = Icons.Rounded.Check,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = if (current) 1f else 0.80f),
+                    tint = Color.White.copy(alpha = if (current) 1f else 0.78f),
                     modifier = Modifier.size(20.dp),
                 )
                 state == LyricsProviderState.NOT_FOUND -> Icon(
@@ -204,65 +199,32 @@ private fun LyricsProviderRow(
         }
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = source.label,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = if (current) FontWeight.SemiBold else FontWeight.Medium,
-                    ),
-                    color = Color.White.copy(
-                        alpha = when {
-                            current -> 1f
-                            state == LyricsProviderState.NOT_FOUND -> 0.62f
-                            else -> 0.90f
-                        },
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (source.wordSynced) {
-                    Box(
-                        modifier = Modifier
-                            .clip(SYNC_BADGE_SHAPE)
-                            .background(Color.White.copy(alpha = if (current) 0.18f else 0.10f))
-                            .padding(horizontal = 7.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.lyrics_word_synced_badge),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.2.sp,
-                            ),
-                            color = Color.White.copy(alpha = if (current) 0.95f else 0.74f),
-                            maxLines = 1,
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(2.dp))
             Text(
-                text = status,
-                style = MaterialTheme.typography.labelMedium,
+                text = source.label,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = if (current) FontWeight.SemiBold else FontWeight.Normal,
+                ),
                 color = Color.White.copy(
                     alpha = when {
-                        current -> 0.82f
-                        state == LyricsProviderState.FOUND -> 0.70f
-                        state == LyricsProviderState.NOT_FOUND -> 0.48f
-                        else -> 0.58f
+                        current -> 1f
+                        state == LyricsProviderState.NOT_FOUND -> 0.62f
+                        else -> 0.88f
                     },
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = source.detail,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = Color.White.copy(alpha = if (state == LyricsProviderState.NOT_FOUND) 0.34f else 0.45f),
+                text = status,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(
+                    alpha = when {
+                        current -> 0.75f
+                        state == LyricsProviderState.FOUND -> 0.62f
+                        state == LyricsProviderState.NOT_FOUND -> 0.45f
+                        else -> 0.52f
+                    },
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

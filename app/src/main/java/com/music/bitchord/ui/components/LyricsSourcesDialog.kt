@@ -593,36 +593,14 @@ private fun ReorderableSourceList(
                                 },
                         )
                         Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = source.label,
-                                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                        .copy(alpha = if (toggleable) 1f else 0.5f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false),
-                                )
-                                if (source.wordSynced) {
-                                    Spacer(Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(50))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-                                            .padding(horizontal = 6.dp, vertical = 1.dp),
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.lyrics_word_synced_badge),
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                            ),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                }
-                            }
+                            Text(
+                                text = source.label,
+                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                                color = MaterialTheme.colorScheme.onSurface
+                                    .copy(alpha = if (toggleable) 1f else 0.5f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                             Text(
                                 text = source.detail,
                                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),

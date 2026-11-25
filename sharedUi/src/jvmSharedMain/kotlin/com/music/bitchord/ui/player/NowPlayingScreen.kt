@@ -4606,8 +4606,7 @@ fun NowPlayingScreen(
                             onStatusClick = { showLyricsProviders = true },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .offset(y = 6.dp)
-                                .padding(vertical = 4.dp),
+                                .offset(y = 2.dp),
                         )
                     }
                     }

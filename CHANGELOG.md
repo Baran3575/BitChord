@@ -11,9 +11,9 @@
 - Added `MockWebServer` integration and unit tests in `BetterLyricsTest.kt` and `web/app/src/lyrics/providers.test.ts`.
 
 ### Improved — Lyrics & Player UI
-- Upgraded `LyricsStatusWithChange` to a compact frosted-glass pill chip with hairline border, press-scale animation, and chevron disclosure icon (without stretching across full-width containers).
-- Redesigned `LyricsProviderSheet` with frosted cards, active/found hairline borders, `Word-synced` quality badges, provider descriptions, press-scale animation, and retry state indicators.
-- Polished `LyricsSourcesDialog` with a subtle outer glass border, dragging row highlight, inline `Word-synced` badges, and unified API key rows (`Set` / `Optional` status pills) for BetterLyrics and PaxSenix.
+- Upgraded `LyricsStatusWithChange` to a compact frosted-glass pill chip with hairline border, press-scale animation, and chevron disclosure icon sized cleanly to the player's lyric slot without clipping.
+- Polished `LyricsProviderSheet` with clean two-line frosted cards, active/found hairline borders, press-scale animation, and tap-to-retry indicators on missed providers.
+- Polished `LyricsSourcesDialog` with a subtle outer glass border, dragging row highlight, and unified API key rows (`Set` / `Optional` status pills) for BetterLyrics and PaxSenix.
 - Refined `LyricsSkeleton` shimmer easing/geometry and added a breathing alpha pulse to `LyricsLoadingLine`.
 - Added localization strings across all supported locales (`app/src/main/res` and `sharedUi/composeResources`).
 
