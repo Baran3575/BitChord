@@ -68,6 +68,11 @@
         android:name="android.permission.READ_PHONE_STATE"
         tools:node="remove" />
 
+    <queries>
+        <!-- Original BitChord package so BitChord+ can detect it and jump straight to Export data. -->
+        <package android:name="com.music.bitchord" />
+    </queries>
+
     <application
         android:name=".BitChordApplication"
         android:allowBackup="true"

@@ -118,19 +118,24 @@ object Backup {
         }
     }
 
-    /**
-     * Reads a backup from [input] and applies it, under the same all-or-nothing
-     * rule as [importFrom]: everything is parsed and checked before anything on
-     * this device is touched. [input] is left open: the caller owns it.
-     */
     @OptIn(ExperimentalSerializationApi::class)
-    suspend fun readFrom(input: InputStream): Summary = withContext(Dispatchers.IO) {
+    internal fun parse(input: InputStream): BackupFile {
         val file = runCatching { json.decodeFromStream(BackupFile.serializer(), input) }
             .getOrElse { error("That doesn't look like a BitChord backup") }
         require(file.app == APP_TAG) { "That backup is from another app" }
         require(file.version <= SCHEMA_VERSION) {
             "That backup was written by a newer version of BitChord"
         }
+        return file
+    }
+
+    /**
+     * Reads a backup from [input] and applies it, under the same all-or-nothing
+     * rule as [importFrom]: everything is parsed and checked before anything on
+     * this device is touched. [input] is left open: the caller owns it.
+     */
+    suspend fun readFrom(input: InputStream): Summary = withContext(Dispatchers.IO) {
+        val file = parse(input)
 
         ListeningStats.importAll(file.listening)
         AppSettings.importPrefs(file.settings.mapValues { it.value.decoded() })

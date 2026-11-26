@@ -1673,4 +1673,27 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">Most BitChord</string>
+    <string name="bitchord_bridge_subtitle">Połącz czas słuchania z BitChord bez nadpisywania BitChord+</string>
+    <string name="bitchord_bridge_subtitle_installed">Wykryto BitChord — przenieś czas słuchania do BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s z BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">Łączy historię słuchania z oryginalnego BitChord z BitChord+ Replay bez podwójnego liczenia i bez usuwania danych lokalnych.</string>
+    <string name="bitchord_bridge_app_installed">Oryginalny BitChord jest zainstalowany na tym urządzeniu.</string>
+    <string name="bitchord_bridge_app_not_installed">Oryginalny BitChord nie jest zainstalowany na tym urządzeniu.</string>
+    <string name="bitchord_bridge_folder_label">Folder auto-sync: %1$s</string>
+    <string name="bitchord_bridge_include_settings">Importuj też ustawienia i historię wyszukiwania</string>
+    <string name="bitchord_bridge_import_file">Importuj kopię BitChord</string>
+    <string name="bitchord_bridge_link_folder">Połącz folder kopii (auto)</string>
+    <string name="bitchord_bridge_change_folder">Zmień połączony folder</string>
+    <string name="bitchord_bridge_sync_now">Synchronizuj folder teraz</string>
+    <string name="bitchord_bridge_unlink_folder">Odłącz</string>
+    <string name="bitchord_bridge_open_original">Otwórz BitChord, aby wyeksportować</string>
+    <string name="bitchord_bridge_clear_data">Wyczyść dane mostu</string>
+    <string name="bitchord_bridge_import_succeeded">Połączono %1$s (%2$s) z BitChord</string>
+    <string name="bitchord_bridge_sync_up_to_date">Most BitChord jest już aktualny</string>
+    <string name="bitchord_bridge_folder_empty">Połączono folder — nie znaleziono jeszcze pliku JSON BitChord</string>
+    <string name="bitchord_bridge_sync_failed">Synchronizacja mostu nie powiodła się: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
+    <string name="bitchord_bridge_duration_m">%1$dm</string>
 </resources>

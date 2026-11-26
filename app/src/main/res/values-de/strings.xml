@@ -1631,4 +1631,27 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">BitChord-Brücke</string>
+    <string name="bitchord_bridge_subtitle">BitChord-Hörzeit ohne Überschreiben von BitChord+ zusammenführen</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord erkannt — Hörzeit in BitChord+ übernehmen</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s von BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">Führt den Hörverlauf vom ursprünglichen BitChord mit BitChord+ Replay zusammen, ohne doppelt zu zählen oder lokale Daten zu löschen.</string>
+    <string name="bitchord_bridge_app_installed">Das ursprüngliche BitChord ist auf diesem Gerät installiert.</string>
+    <string name="bitchord_bridge_app_not_installed">Das ursprüngliche BitChord ist auf diesem Gerät nicht installiert.</string>
+    <string name="bitchord_bridge_folder_label">Auto-Sync-Ordner: %1$s</string>
+    <string name="bitchord_bridge_include_settings">Auch Einstellungen &amp; Suchverlauf importieren</string>
+    <string name="bitchord_bridge_import_file">BitChord-Backup importieren</string>
+    <string name="bitchord_bridge_link_folder">Backup-Ordner verknüpfen (Auto-Sync)</string>
+    <string name="bitchord_bridge_change_folder">Verknüpften Ordner ändern</string>
+    <string name="bitchord_bridge_sync_now">Ordner jetzt synchronisieren</string>
+    <string name="bitchord_bridge_unlink_folder">Trennen</string>
+    <string name="bitchord_bridge_open_original">BitChord zum Exportieren öffnen</string>
+    <string name="bitchord_bridge_clear_data">Brückendaten löschen</string>
+    <string name="bitchord_bridge_import_succeeded">%1$s (%2$s) aus BitChord zusammengeführt</string>
+    <string name="bitchord_bridge_sync_up_to_date">BitChord-Brücke ist bereits aktuell</string>
+    <string name="bitchord_bridge_folder_empty">Ordner verknüpft — noch keine BitChord-Backup-JSON gefunden</string>
+    <string name="bitchord_bridge_sync_failed">Brückensynchronisierung fehlgeschlagen: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
+    <string name="bitchord_bridge_duration_m">%1$dm</string>
 </resources>

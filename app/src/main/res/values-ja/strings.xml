@@ -1608,4 +1608,27 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">BitChord ブリッジ</string>
+    <string name="bitchord_bridge_subtitle">BitChord+ を上書きせずに BitChord の再生時間を統合</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord を検出 — 再生時間を BitChord+ に取り込む</string>
+    <string name="bitchord_bridge_subtitle_synced">BitChord から %1$s · %2$s</string>
+    <string name="bitchord_bridge_description">元の BitChord の再生履歴を、重複カウントやローカルデータの消去なしに BitChord+ Replay へ統合します。</string>
+    <string name="bitchord_bridge_app_installed">元の BitChord がこの端末にインストールされています。</string>
+    <string name="bitchord_bridge_app_not_installed">元の BitChord はこの端末にインストールされていません。</string>
+    <string name="bitchord_bridge_folder_label">自動同期フォルダ: %1$s</string>
+    <string name="bitchord_bridge_include_settings">設定と検索履歴もインポートする</string>
+    <string name="bitchord_bridge_import_file">BitChord バックアップを読み込む</string>
+    <string name="bitchord_bridge_link_folder">バックアップフォルダを連携（自動）</string>
+    <string name="bitchord_bridge_change_folder">連携フォルダを変更</string>
+    <string name="bitchord_bridge_sync_now">今すぐ同期</string>
+    <string name="bitchord_bridge_unlink_folder">連携解除</string>
+    <string name="bitchord_bridge_open_original">BitChord を開いてエクスポート</string>
+    <string name="bitchord_bridge_clear_data">ブリッジデータを削除</string>
+    <string name="bitchord_bridge_import_succeeded">BitChord から %1$s（%2$s）を統合しました</string>
+    <string name="bitchord_bridge_sync_up_to_date">BitChord ブリッジは最新です</string>
+    <string name="bitchord_bridge_folder_empty">フォルダを連携しました — BitChord の JSON バックアップがまだありません</string>
+    <string name="bitchord_bridge_sync_failed">ブリッジの同期に失敗しました: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$d時間%2$d分</string>
+    <string name="bitchord_bridge_duration_m">%1$d分</string>
 </resources>

@@ -5,6 +5,7 @@ import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.stats.Backup
+import com.music.bitchord.data.stats.BitChordBridge
 import com.music.bitchord.data.stats.BucketMath
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.stats.PeerListening
@@ -298,12 +299,14 @@ object ReplaySync {
         var downloaded = 0
         var changed = false
         val held = PeerListening.peers().associateBy { it.deviceId }
-        // Gone from Drive, or now this phone's own partition.
-        held.keys.filter { id -> id == myId || devices.none { it.deviceId == id } }.forEach {
+        // Gone from Drive, or now this phone's own partition — never drop local bridge partitions.
+        held.keys.filter { id ->
+            id !in BitChordBridge.PROTECTED_PEER_IDS && (id == myId || devices.none { it.deviceId == id })
+        }.forEach {
             PeerListening.removeDevice(it)
             changed = true
         }
-        devices.filter { it.deviceId != myId }.forEach { device ->
+        devices.filter { it.deviceId != myId && it.deviceId !in BitChordBridge.PROTECTED_PEER_IDS }.forEach { device ->
             val files = listing.months[device.deviceId].orEmpty()
             val plan = SyncPlanner.pull(
                 listed = device.manifest.months.keys,

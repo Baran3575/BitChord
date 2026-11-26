@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added — BitChord Bridge
+- Added `BitChordBridge` (`app/src/main/java/com/music/bitchord/data/stats/BitChordBridge.kt`) so original BitChord (`com.music.bitchord`) listening time / Replay stats can be merged into BitChord+ (`com.music.bitchord.plus`) without overwriting BitChord+ listening months or double-counting plays.
+- Added a persistent auto-sync folder link (Storage Access Framework tree URI) that automatically detects and merges newer `bitchord-backup-*.json` exports on app resume, plus an optional toggle to also import non-secret settings and search history while keeping credentials and API keys untouched.
+- Added `<queries>` package visibility for `com.music.bitchord` so Settings can detect an installed original BitChord app and open it directly to export.
+- Protected the local `"bitchord-original"` partition during Google Drive disconnect and peer pruning in `PeerListening`, `DriveBackup`, and `ReplaySync`.
+
 ## [v1.10.1] - 2026-11-24
 
 ### Fixed — BetterLyrics

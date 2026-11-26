@@ -1607,4 +1607,27 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">BitChord 橋接</string>
+    <string name="bitchord_bridge_subtitle">在不覆蓋 BitChord+ 的情況下合併 BitChord 聆聽時間</string>
+    <string name="bitchord_bridge_subtitle_installed">偵測到 BitChord — 將聆聽時間匯入 BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">來自 BitChord %1$s · %2$s</string>
+    <string name="bitchord_bridge_description">將原版 BitChord 的聆聽紀錄合併至 BitChord+ Replay，不會重複計算或清除本機資料。</string>
+    <string name="bitchord_bridge_app_installed">此裝置已安裝原版 BitChord。</string>
+    <string name="bitchord_bridge_app_not_installed">此裝置未安裝原版 BitChord。</string>
+    <string name="bitchord_bridge_folder_label">自動同步資料夾：%1$s</string>
+    <string name="bitchord_bridge_include_settings">同時匯入設定與搜尋紀錄</string>
+    <string name="bitchord_bridge_import_file">匯入 BitChord 備份</string>
+    <string name="bitchord_bridge_link_folder">連結備份資料夾（自動同步）</string>
+    <string name="bitchord_bridge_change_folder">變更已連結資料夾</string>
+    <string name="bitchord_bridge_sync_now">立即同步資料夾</string>
+    <string name="bitchord_bridge_unlink_folder">取消連結</string>
+    <string name="bitchord_bridge_open_original">開啟 BitChord 匯出</string>
+    <string name="bitchord_bridge_clear_data">清除橋接資料</string>
+    <string name="bitchord_bridge_import_succeeded">已從 BitChord 合併 %1$s（%2$s）</string>
+    <string name="bitchord_bridge_sync_up_to_date">BitChord 橋接已是最新</string>
+    <string name="bitchord_bridge_folder_empty">資料夾已連結 — 尚未找到 BitChord 備份 JSON</string>
+    <string name="bitchord_bridge_sync_failed">橋接同步失敗：%1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$d小時%2$d分鐘</string>
+    <string name="bitchord_bridge_duration_m">%1$d分鐘</string>
 </resources>

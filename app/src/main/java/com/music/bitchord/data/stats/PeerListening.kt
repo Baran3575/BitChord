@@ -49,7 +49,11 @@ object PeerListening {
     private val lock = Any()
 
     fun init(context: Context) {
-        root = File(context.filesDir, DIRECTORY)
+        init(File(context.filesDir, DIRECTORY))
+    }
+
+    internal fun init(rootDir: File) {
+        root = rootDir
     }
 
     private val ready: Boolean get() = this::root.isInitialized
@@ -124,10 +128,17 @@ object PeerListening {
         }
     }
 
-    /** Forgets every other device, as disconnecting from Drive does. */
-    fun clear() {
+    /** Forgets every other device (except any protected [exclude] partitions), as disconnecting from Drive does. */
+    fun clear(exclude: Set<String> = emptySet()) {
         synchronized(lock) {
-            if (ready) root.deleteRecursively()
+            if (!ready) return
+            if (exclude.isEmpty()) {
+                root.deleteRecursively()
+                return
+            }
+            root.listFiles()?.forEach { child ->
+                if (child.name !in exclude) child.deleteRecursively()
+            }
         }
     }
 

@@ -1603,4 +1603,27 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">Puente de BitChord</string>
+    <string name="bitchord_bridge_subtitle">Combina tu tiempo de escucha de BitChord sin sobrescribir BitChord+</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord detectado — trae tu historial a BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s de BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">Combina el historial de escucha del BitChord original en BitChord+ Replay sin duplicar reproducciones ni borrar datos locales.</string>
+    <string name="bitchord_bridge_app_installed">El BitChord original está instalado en este dispositivo.</string>
+    <string name="bitchord_bridge_app_not_installed">El BitChord original no está instalado en este dispositivo.</string>
+    <string name="bitchord_bridge_folder_label">Carpeta automática: %1$s</string>
+    <string name="bitchord_bridge_include_settings">Importar también ajustes e historial de búsqueda</string>
+    <string name="bitchord_bridge_import_file">Importar copia de BitChord</string>
+    <string name="bitchord_bridge_link_folder">Vincular carpeta de copias (automático)</string>
+    <string name="bitchord_bridge_change_folder">Cambiar carpeta vinculada</string>
+    <string name="bitchord_bridge_sync_now">Sincronizar carpeta ahora</string>
+    <string name="bitchord_bridge_unlink_folder">Desvincular</string>
+    <string name="bitchord_bridge_open_original">Abrir BitChord para exportar</string>
+    <string name="bitchord_bridge_clear_data">Borrar datos del puente</string>
+    <string name="bitchord_bridge_import_succeeded">Se combinaron %1$s (%2$s) desde BitChord</string>
+    <string name="bitchord_bridge_sync_up_to_date">El puente de BitChord ya está actualizado</string>
+    <string name="bitchord_bridge_folder_empty">Carpeta vinculada — aún no hay copia JSON de BitChord</string>
+    <string name="bitchord_bridge_sync_failed">Error al sincronizar el puente: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
+    <string name="bitchord_bridge_duration_m">%1$dm</string>
 </resources>

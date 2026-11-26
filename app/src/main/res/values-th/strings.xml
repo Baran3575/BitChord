@@ -1613,4 +1613,27 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">ตัวเชื่อม BitChord</string>
+    <string name="bitchord_bridge_subtitle">รวมเวลาฟังจาก BitChord โดยไม่เขียนทับ BitChord+</string>
+    <string name="bitchord_bridge_subtitle_installed">พบ BitChord — นำเวลาฟังมาที่ BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s จาก BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">รวมประวัติการฟังจาก BitChord ดั้งเดิมเข้าสู่ BitChord+ Replay โดยไม่นับซ้ำและไม่ลบข้อมูลในเครื่อง</string>
+    <string name="bitchord_bridge_app_installed">ติดตั้ง BitChord ดั้งเดิมบนอุปกรณ์นี้แล้ว</string>
+    <string name="bitchord_bridge_app_not_installed">ไม่ได้ติดตั้ง BitChord ดั้งเดิมบนอุปกรณ์นี้</string>
+    <string name="bitchord_bridge_folder_label">โฟลเดอร์ซิงค์อัตโนมัติ: %1$s</string>
+    <string name="bitchord_bridge_include_settings">นำเข้าการตั้งค่าและประวัติการค้นหาด้วย</string>
+    <string name="bitchord_bridge_import_file">นำเข้าข้อมูลสำรอง BitChord</string>
+    <string name="bitchord_bridge_link_folder">เชื่อมโยงโฟลเดอร์สำรอง (อัตโนมัติ)</string>
+    <string name="bitchord_bridge_change_folder">เปลี่ยนโฟลเดอร์ที่เชื่อมโยง</string>
+    <string name="bitchord_bridge_sync_now">ซิงค์โฟลเดอร์ตอนนี้</string>
+    <string name="bitchord_bridge_unlink_folder">ยกเลิกการเชื่อมโยง</string>
+    <string name="bitchord_bridge_open_original">เปิด BitChord เพื่อส่งออก</string>
+    <string name="bitchord_bridge_clear_data">ล้างข้อมูลตัวเชื่อม</string>
+    <string name="bitchord_bridge_import_succeeded">รวม %1$s (%2$s) จาก BitChord แล้ว</string>
+    <string name="bitchord_bridge_sync_up_to_date">ตัวเชื่อม BitChord เป็นล่าสุดแล้ว</string>
+    <string name="bitchord_bridge_folder_empty">เชื่อมโยงโฟลเดอร์แล้ว — ยังไม่พบไฟล์สำรอง JSON ของ BitChord</string>
+    <string name="bitchord_bridge_sync_failed">ซิงค์ตัวเชื่อมล้มเหลว: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dชม. %2$dน.</string>
+    <string name="bitchord_bridge_duration_m">%1$dน.</string>
 </resources>

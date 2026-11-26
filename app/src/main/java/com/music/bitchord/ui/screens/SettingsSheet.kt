@@ -174,6 +174,7 @@ import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.settings.AppFont
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.stats.Backup
+import com.music.bitchord.data.stats.BitChordBridge
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import kotlinx.coroutines.launch
@@ -412,6 +413,48 @@ fun SettingsScreen(
                 onFailure = {
                     context.getString(R.string.import_failed, it.message ?: context.getString(R.string.unknown_error))
                 },
+            )
+        }
+    }
+    val bridgeStatus by BitChordBridge.status.collectAsStateWithLifecycle()
+    var showBitChordBridgeDialog by remember { mutableStateOf(false) }
+    var bridgeIncludeSettings by remember { mutableStateOf(false) }
+    var bridgeActionStatus by remember { mutableStateOf<String?>(null) }
+    val bridgeFilePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { source ->
+        if (source == null) return@rememberLauncherForActivityResult
+        backupScope.launch {
+            bridgeActionStatus = BitChordBridge.importFromUri(
+                context = context,
+                source = source,
+                includeSettings = bridgeIncludeSettings,
+            ).fold(
+                onSuccess = { res ->
+                    context.getString(
+                        R.string.bitchord_bridge_import_succeeded,
+                        formatBridgeDuration(context, res.totalMs),
+                        context.countOfMonths(res.months),
+                    )
+                },
+                onFailure = { err ->
+                    context.getString(
+                        R.string.bitchord_bridge_sync_failed,
+                        err.message ?: context.getString(R.string.unknown_error),
+                    )
+                },
+            )
+        }
+    }
+    val bridgeFolderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { folder ->
+        if (folder == null) return@rememberLauncherForActivityResult
+        BitChordBridge.linkFolder(context, folder)
+        backupScope.launch {
+            bridgeActionStatus = formatBridgeSyncResult(
+                context,
+                BitChordBridge.syncLinkedFolder(context, force = false),
             )
         }
     }
@@ -1683,6 +1726,18 @@ fun SettingsScreen(
                     onClick = { confirmImport = true },
                 )
             }
+            val bridgeTitle = stringResource(R.string.bitchord_bridge_title)
+            row(bridgeTitle, "bridge", "bitchord", "merge", "replay", "listening", "sync", "backup") {
+                SettingsRow(
+                    icon = SfIcons.Cached,
+                    title = bridgeTitle,
+                    subtitle = bridgeActionStatus ?: formatBridgeRowSubtitle(context, bridgeStatus),
+                    onClick = {
+                        BitChordBridge.refreshInstalledState(context)
+                        showBitChordBridgeDialog = true
+                    },
+                )
+            }
             val driveBackupTitle = stringResource(R.string.drive_backup_title)
             row(driveBackupTitle, "backup", "restore", "google", "drive", "cloud") {
                 DriveBackupSettingsRow(title = driveBackupTitle, onClick = onDriveBackup)
@@ -2059,6 +2114,186 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { confirmImport = false }) {
                     Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showBitChordBridgeDialog) {
+        AlertDialog(
+            onDismissRequest = { showBitChordBridgeDialog = false },
+            title = { Text(stringResource(R.string.bitchord_bridge_title)) },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        text = stringResource(R.string.bitchord_bridge_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                            .padding(12.dp),
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (bridgeStatus.originalInstalled) {
+                                    R.string.bitchord_bridge_app_installed
+                                } else {
+                                    R.string.bitchord_bridge_app_not_installed
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (bridgeStatus.hasBridgedData) {
+                            Text(
+                                text = stringResource(
+                                    R.string.bitchord_bridge_subtitle_synced,
+                                    formatBridgeDuration(context, bridgeStatus.bridgedTotalMs),
+                                    context.countOfMonths(bridgeStatus.bridgedMonths),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        if (bridgeStatus.hasLinkedFolder) {
+                            Text(
+                                text = stringResource(
+                                    R.string.bitchord_bridge_folder_label,
+                                    bridgeStatus.linkedFolderLabel ?: bridgeStatus.linkedFolderUri.orEmpty(),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        val statusLine = bridgeActionStatus ?: bridgeStatus.lastError
+                        if (!statusLine.isNullOrBlank()) {
+                            Text(
+                                text = statusLine,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (bridgeStatus.lastError != null && bridgeActionStatus == null) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { bridgeIncludeSettings = !bridgeIncludeSettings }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.bitchord_bridge_include_settings),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
+                        )
+                        IosSwitch(
+                            checked = bridgeIncludeSettings,
+                            onCheckedChange = { bridgeIncludeSettings = it },
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        TextButton(
+                            onClick = {
+                                bridgeFilePicker.launch(arrayOf("application/json", "text/plain", "*/*"))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.bitchord_bridge_import_file),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        if (bridgeStatus.hasLinkedFolder) {
+                            TextButton(
+                                onClick = {
+                                    backupScope.launch {
+                                        bridgeActionStatus = formatBridgeSyncResult(
+                                            context,
+                                            BitChordBridge.syncLinkedFolder(context = context, force = false),
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.bitchord_bridge_sync_now),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                TextButton(
+                                    onClick = { bridgeFolderPicker.launch(null) },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(stringResource(R.string.bitchord_bridge_change_folder))
+                                }
+                                TextButton(
+                                    onClick = {
+                                        BitChordBridge.unlinkFolder(context)
+                                        bridgeActionStatus = null
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.bitchord_bridge_unlink_folder))
+                                }
+                            }
+                        } else {
+                            TextButton(
+                                onClick = { bridgeFolderPicker.launch(null) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.bitchord_bridge_link_folder),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                        if (bridgeStatus.originalInstalled) {
+                            TextButton(
+                                onClick = { BitChordBridge.launchOriginalApp(context) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.bitchord_bridge_open_original),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                        if (bridgeStatus.hasBridgedData) {
+                            TextButton(
+                                onClick = {
+                                    BitChordBridge.clearBridgedStats()
+                                    bridgeActionStatus = null
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.bitchord_bridge_clear_data),
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBitChordBridgeDialog = false }) {
+                    Text(stringResource(R.string.close))
                 }
             },
         )
@@ -3296,3 +3531,50 @@ internal fun <T> ChoiceGroup(
         }
     }
 }
+
+private fun formatBridgeDuration(context: Context, totalMs: Long): String {
+    val totalMinutes = (totalMs / 60_000L).coerceAtLeast(0L)
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    return if (hours > 0L) {
+        context.getString(R.string.bitchord_bridge_duration_hm, hours, minutes)
+    } else {
+        context.getString(R.string.bitchord_bridge_duration_m, minutes)
+    }
+}
+
+private fun formatBridgeRowSubtitle(
+    context: Context,
+    status: BitChordBridge.BridgeStatus,
+): String = when {
+    status.hasBridgedData -> context.getString(
+        R.string.bitchord_bridge_subtitle_synced,
+        formatBridgeDuration(context, status.bridgedTotalMs),
+        context.countOfMonths(status.bridgedMonths),
+    )
+    status.originalInstalled -> context.getString(R.string.bitchord_bridge_subtitle_installed)
+    else -> context.getString(R.string.bitchord_bridge_subtitle)
+}
+
+private fun formatBridgeSyncResult(
+    context: Context,
+    result: Result<BitChordBridge.ImportResult?>,
+): String = result.fold(
+    onSuccess = { res ->
+        when {
+            res == null -> context.getString(R.string.bitchord_bridge_folder_empty)
+            res.updated -> context.getString(
+                R.string.bitchord_bridge_import_succeeded,
+                formatBridgeDuration(context, res.totalMs),
+                context.countOfMonths(res.months),
+            )
+            else -> context.getString(R.string.bitchord_bridge_sync_up_to_date)
+        }
+    },
+    onFailure = { err ->
+        context.getString(
+            R.string.bitchord_bridge_sync_failed,
+            err.message ?: context.getString(R.string.unknown_error),
+        )
+    },
+)

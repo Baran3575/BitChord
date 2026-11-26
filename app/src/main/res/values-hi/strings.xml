@@ -1631,4 +1631,27 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">BitChord ब्रिज</string>
+    <string name="bitchord_bridge_subtitle">BitChord+ को ओवरराइट किए बिना BitChord सुनने का समय जोड़ें</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord मिला — सुनने का समय BitChord+ में लाएं</string>
+    <string name="bitchord_bridge_subtitle_synced">BitChord से %1$s · %2$s</string>
+    <string name="bitchord_bridge_description">मूल BitChord के सुनने का इतिहास बिना दोहरी गिनती या स्थानीय डेटा मिटाए BitChord+ Replay में जोड़ता है।</string>
+    <string name="bitchord_bridge_app_installed">इस डिवाइस पर मूल BitChord इंस्टॉल है।</string>
+    <string name="bitchord_bridge_app_not_installed">इस डिवाइस पर मूल BitChord इंस्टॉल नहीं है।</string>
+    <string name="bitchord_bridge_folder_label">ऑटो-सिंक फ़ोल्डर: %1$s</string>
+    <string name="bitchord_bridge_include_settings">सेटिंग्स और खोज इतिहास भी आयात करें</string>
+    <string name="bitchord_bridge_import_file">BitChord बैकअप आयात करें</string>
+    <string name="bitchord_bridge_link_folder">बैकअप फ़ोल्डर लिंक करें (ऑटो-सिंक)</string>
+    <string name="bitchord_bridge_change_folder">लिंक किया फ़ोल्डर बदलें</string>
+    <string name="bitchord_bridge_sync_now">फ़ोल्डर अभी सिंक करें</string>
+    <string name="bitchord_bridge_unlink_folder">अनलिंक करें</string>
+    <string name="bitchord_bridge_open_original">निर्यात के लिए BitChord खोलें</string>
+    <string name="bitchord_bridge_clear_data">ब्रिज डेटा साफ़ करें</string>
+    <string name="bitchord_bridge_import_succeeded">BitChord से %1$s (%2$s) जोड़ा गया</string>
+    <string name="bitchord_bridge_sync_up_to_date">BitChord ब्रिज पहले से अद्यतन है</string>
+    <string name="bitchord_bridge_folder_empty">फ़ोल्डर लिंक हो गया — अभी तक कोई BitChord बैकअप JSON नहीं मिला</string>
+    <string name="bitchord_bridge_sync_failed">ब्रिज सिंक विफल: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dघं %2$dमि</string>
+    <string name="bitchord_bridge_duration_m">%1$dमि</string>
 </resources>

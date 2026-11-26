@@ -1632,4 +1632,27 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">Passerelle BitChord</string>
+    <string name="bitchord_bridge_subtitle">Fusionnez votre temps d\'écoute BitChord sans écraser BitChord+</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord détecté — importez votre temps d\'écoute dans BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s depuis BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">Fusionne l\'historique d\'écoute de BitChord d\'origine dans BitChord+ Replay sans double comptage ni effacement local.</string>
+    <string name="bitchord_bridge_app_installed">Le BitChord d\'origine est installé sur cet appareil.</string>
+    <string name="bitchord_bridge_app_not_installed">Le BitChord d\'origine n\'est pas installé sur cet appareil.</string>
+    <string name="bitchord_bridge_folder_label">Dossier auto-sync : %1$s</string>
+    <string name="bitchord_bridge_include_settings">Importer aussi les paramètres et l\'historique</string>
+    <string name="bitchord_bridge_import_file">Importer une sauvegarde BitChord</string>
+    <string name="bitchord_bridge_link_folder">Lier un dossier (synchro auto)</string>
+    <string name="bitchord_bridge_change_folder">Changer le dossier lié</string>
+    <string name="bitchord_bridge_sync_now">Synchroniser maintenant</string>
+    <string name="bitchord_bridge_unlink_folder">Dissocier</string>
+    <string name="bitchord_bridge_open_original">Ouvrir BitChord pour exporter</string>
+    <string name="bitchord_bridge_clear_data">Effacer les données fusionnées</string>
+    <string name="bitchord_bridge_import_succeeded">%1$s (%2$s) fusionnés depuis BitChord</string>
+    <string name="bitchord_bridge_sync_up_to_date">La passerelle BitChord est déjà à jour</string>
+    <string name="bitchord_bridge_folder_empty">Dossier lié — aucune sauvegarde JSON BitChord trouvée</string>
+    <string name="bitchord_bridge_sync_failed">Échec de la passerelle : %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
+    <string name="bitchord_bridge_duration_m">%1$dm</string>
 </resources>
