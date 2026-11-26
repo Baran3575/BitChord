@@ -8,6 +8,9 @@
 - Added `<queries>` package visibility for `com.music.bitchord` so Settings can detect an installed original BitChord app and open it directly to export.
 - Protected the local `"bitchord-original"` partition during Google Drive disconnect and peer pruning in `PeerListening`, `DriveBackup`, and `ReplaySync`.
 
+### Changed — Build & ABI Splits
+- Restricted Phone and TV APK builds in `app/build.gradle.kts`, `tv/build.gradle.kts`, and `.github/workflows/release.yml` to `arm64-v8a` and `armeabi-v7a` only (`x86_64` and universal splits disabled for faster builds and smaller artifacts).
+
 ## [v1.10.1] - 2026-11-24
 
 ### Fixed — BetterLyrics

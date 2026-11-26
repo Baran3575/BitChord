@@ -71,13 +71,13 @@ jobs:
           mkdir -p release-assets
 
           # Match AppUpdateChecker.apkAssetUrl naming:
-          # BitChord-vX.apk, BitChord-vX_<abi>.apk, BitChordTV-vX.apk, BitChordTV-vX_<abi>.apk
+          # BitChord-vX_<abi>.apk, BitChordTV-vX_<abi>.apk (arm64-v8a & armeabi-v7a only)
           for apk in app/build/outputs/apk/prod/release/*.apk; do
             base=$(basename "$apk")
             if [[ "$base" == *"universal"* ]]; then
               cp "$apk" "release-assets/BitChord-${TAG}.apk"
             else
-              for abi in arm64-v8a armeabi-v7a x86_64; do
+              for abi in arm64-v8a armeabi-v7a; do
                 if [[ "$base" == *"$abi"* ]]; then
                   cp "$apk" "release-assets/BitChord-${TAG}_${abi}.apk"
                 fi
@@ -90,7 +90,7 @@ jobs:
             if [[ "$base" == *"universal"* ]]; then
               cp "$apk" "release-assets/BitChordTV-${TAG}.apk"
             else
-              for abi in arm64-v8a armeabi-v7a x86_64; do
+              for abi in arm64-v8a armeabi-v7a; do
                 if [[ "$base" == *"$abi"* ]]; then
                   cp "$apk" "release-assets/BitChordTV-${TAG}_${abi}.apk"
                 fi
