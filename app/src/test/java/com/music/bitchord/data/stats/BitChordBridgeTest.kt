@@ -120,8 +120,8 @@ class BitChordBridgeTest {
         val bytes = backupBytes(
             buckets = listOf(bucket("2026-11", "song-1", ms = 60_000L, plays = 1)),
             settings = mapOf(
-                "dynamic_theme" to Backup.PrefValue(type = "boolean", value = "true"),
-                "better_lyrics_api_key" to Backup.PrefValue(type = "string", value = "ignored-secret"),
+                "dynamic_theme" to Backup.PrefValue.of(true)!!,
+                "better_lyrics_api_key" to Backup.PrefValue.of("ignored-secret")!!,
             ),
         )
 
