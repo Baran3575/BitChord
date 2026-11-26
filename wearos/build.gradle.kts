@@ -58,7 +58,8 @@ android {
         }
         create("prod") {
             dimension = "env"
-            resValue("string", "app_name", "BitChord")
+            applicationId = "com.music.bitchord.plus"
+            resValue("string", "app_name", "BitChord+")
         }
     }
 

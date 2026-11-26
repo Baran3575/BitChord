@@ -700,6 +700,9 @@ object AppSettings {
     /** User-issued credential required by api.paxsenix.org. */
     val paxSenixApiKey = MutableStateFlow("")
 
+    /** Optional user-issued X-API-Key for uncached BetterLyrics queries. */
+    val betterLyricsApiKey = MutableStateFlow("")
+
     /**
      * Disk budget for cached audio. [AudioCache][com.music.bitchord.playback.AudioCache] evicts past it.
      * [UNLIMITED_CACHE_LIMIT_BYTES] means no ceiling of the app's own.
@@ -1174,6 +1177,8 @@ object AppSettings {
         prioritizeSyllableSync.value = prefs.getBoolean(KEY_PRIORITIZE_SYLLABLE_SYNC, false)
         paxSenixApiKey.value = secret(KEY_PAXSENIX_API_KEY)
         com.music.bitchord.data.lyrics.PaxSenix.setApiKey(paxSenixApiKey.value)
+        betterLyricsApiKey.value = secret(KEY_BETTER_LYRICS_API_KEY)
+        com.music.bitchord.data.lyrics.BetterLyrics.setApiKey(betterLyricsApiKey.value)
         audioCacheLimitBytes.value = clampCacheLimit(prefs.getLong(KEY_CACHE_LIMIT, DEFAULT_CACHE_LIMIT_BYTES))
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
@@ -1807,6 +1812,13 @@ object AppSettings {
         com.music.bitchord.data.lyrics.PaxSenix.setApiKey(normalized)
     }
 
+    fun setBetterLyricsApiKey(value: String) {
+        val normalized = com.music.bitchord.data.lyrics.normalizeBetterLyricsApiKey(value)
+        betterLyricsApiKey.value = normalized
+        putSecret(KEY_BETTER_LYRICS_API_KEY, normalized)
+        com.music.bitchord.data.lyrics.BetterLyrics.setApiKey(normalized)
+    }
+
     /**
      * Puts the source list, its order and [prioritizeSyllableSync] back the
      * way a fresh install finds them. [syncedLyrics] itself is left alone —
@@ -2371,6 +2383,7 @@ object AppSettings {
         KEY_LISTENBRAINZ_TOKEN,
         KEY_SPOTIFY_SPDC_TOKEN,
         KEY_PAXSENIX_API_KEY,
+        KEY_BETTER_LYRICS_API_KEY,
     )
 
     /**
@@ -2505,6 +2518,7 @@ object AppSettings {
     private const val KEY_LYRICS_SOURCE_ORDER = "lyrics_source_order"
     private const val KEY_PRIORITIZE_SYLLABLE_SYNC = "prioritize_syllable_sync"
     private const val KEY_PAXSENIX_API_KEY = "paxsenix_api_key"
+    private const val KEY_BETTER_LYRICS_API_KEY = "betterlyrics_api_key"
     private const val KEY_REPLAY_GENRES = "replay_genres"
     private const val KEY_FILTER_NON_MUSIC_AUDIO = "filter_non_music_audio"
     private const val KEY_SHOW_CACHE_FOLDER = "show_cache_folder"

@@ -87,6 +87,7 @@
     <string name="lyrics_provider_found">Testo trovato · Tocca per usarlo</string>
     <string name="lyrics_provider_not_fetched">Tocca per recuperare</string>
     <string name="lyrics_provider_not_found">Testo non trovato</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
     <string name="lyrics_romanization_unavailable">La traslitterazione non è disponibile per questo testo</string>
     <string name="lyrics_romanized">Pronuncia traslitterata</string>
     <string name="lyrics_saved_with_download">Testi salvati con questo download</string>

@@ -87,6 +87,7 @@
     <string name="lyrics_provider_found">歌詞が見つかりました · タップして使用</string>
     <string name="lyrics_provider_not_fetched">タップして取得</string>
     <string name="lyrics_provider_not_found">歌詞が見つかりません</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
     <string name="lyrics_romanization_unavailable">この歌詞はローマ字化できません</string>
     <string name="lyrics_romanized">ローマ字読み</string>
     <string name="lyrics_saved_with_download">このダウンロードに歌詞を保存済み</string>

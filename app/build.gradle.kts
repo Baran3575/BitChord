@@ -65,6 +65,12 @@ val addonAuthServer: String = (
         ?: "https://bitchord-auth.kushagrasingh.in"
     ).trim().trimEnd('/')
 
+val updateRepo: String = (
+    localProps.getProperty("UPDATE_REPO")
+        ?: System.getenv("UPDATE_REPO")
+        ?: "Baran3575/BitChord"
+    ).trim().trim('/')
+
 // See the root build.gradle.kts: one version for the phone and its watch app.
 val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
 
@@ -109,6 +115,11 @@ android {
         // the same GitHub release, told apart by file name. See
         // AppUpdateChecker.apkAssetUrl.
         buildConfigField("String", "UPDATE_APK_PREFIX", "\"BitChord-\"")
+        buildConfigField(
+            "String",
+            "UPDATE_REPO",
+            "\"${updateRepo.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
     }
 
     splits {
@@ -145,7 +156,10 @@ android {
         }
         create("prod") {
             dimension = "env"
-            // Matches defaultConfig — this is the package already shipped/installed.
+            // Distinct package id so the fork release installs side-by-side
+            // with upstream BitChord without signature conflicts.
+            applicationId = "com.music.bitchord.plus"
+            resValue("string", "app_name", "BitChord+")
         }
     }
 

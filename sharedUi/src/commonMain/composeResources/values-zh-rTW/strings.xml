@@ -87,6 +87,7 @@
     <string name="lyrics_provider_found">已找到歌詞 · 點按以使用</string>
     <string name="lyrics_provider_not_fetched">點按以獲取</string>
     <string name="lyrics_provider_not_found">未找到歌詞</string>
+    <string name="lyrics_word_synced_badge">Word-synced</string>
     <string name="lyrics_romanization_unavailable">這些歌詞無法轉換為羅馬音</string>
     <string name="lyrics_romanized">羅馬音發音</string>
     <string name="lyrics_saved_with_download">歌詞已隨此次下載儲存</string>

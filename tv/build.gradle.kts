@@ -52,6 +52,12 @@ val listenTogetherServer: String = (
         ?: "https://bitchord-listen-together.onrender.com"
     ).trim().trimEnd('/')
 
+val updateRepo: String = (
+    localProps.getProperty("UPDATE_REPO")
+        ?: System.getenv("UPDATE_REPO")
+        ?: "Baran3575/BitChord"
+    ).trim().trim('/')
+
 /*
  * Bump this by hand before cutting each sideloaded test build ("beta2",
  * "beta3", ...) and blank it out before cutting the real release. Marks the
@@ -90,8 +96,8 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 42
-        versionName = "1.10"
+        versionCode = 43
+        versionName = "1.10.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -111,6 +117,11 @@ android {
         // the updater installs the TV app here, never the phone app. See
         // AppUpdateChecker.apkAssetUrl.
         buildConfigField("String", "UPDATE_APK_PREFIX", "\"BitChordTV-\"")
+        buildConfigField(
+            "String",
+            "UPDATE_REPO",
+            "\"${updateRepo.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
     }
 
     splits {
@@ -163,7 +174,8 @@ android {
         }
         create("prod") {
             dimension = "env"
-            resValue("string", "app_name", "BitChord TV")
+            applicationId = "com.music.bitchord.plus.tv"
+            resValue("string", "app_name", "BitChord+ TV")
         }
     }
 
