@@ -49,7 +49,11 @@ object PeerListening {
     private val lock = Any()
 
     fun init(context: Context) {
-        root = File(context.filesDir, DIRECTORY)
+        init(File(context.filesDir, DIRECTORY))
+    }
+
+    internal fun init(rootDir: File) {
+        root = rootDir
     }
 
     private val ready: Boolean get() = this::root.isInitialized
@@ -76,6 +80,25 @@ object PeerListening {
                 .onFailure { Log.w(TAG, "Discarding unreadable ${dir.name}/$month", it) }
                 .getOrNull()
         }.orEmpty()
+    }
+
+    /** Returns [deviceId]'s stored copy of [month], if present and valid. */
+    fun bucket(deviceId: String, month: String): StoredBucket? = synchronized(lock) {
+        if (!ready) return null
+        val file = File(File(root, deviceId), "$month.json")
+        if (!file.exists()) return null
+        runCatching { BucketMath.decode(file.readBytes()) }.getOrNull()
+    }
+
+    /** Returns every stored month bucket owned by [deviceId]. */
+    fun deviceBuckets(deviceId: String): List<StoredBucket> = synchronized(lock) {
+        if (!ready) return emptyList()
+        val peer = readIndex(File(root, deviceId)) ?: return emptyList()
+        peer.months.keys.sorted().mapNotNull { m ->
+            val file = File(File(root, deviceId), "$m.json")
+            if (!file.exists()) return@mapNotNull null
+            runCatching { BucketMath.decode(file.readBytes()) }.getOrNull()
+        }
     }
 
     /**
@@ -124,10 +147,17 @@ object PeerListening {
         }
     }
 
-    /** Forgets every other device, as disconnecting from Drive does. */
-    fun clear() {
+    /** Forgets every other device (except any protected [exclude] partitions), as disconnecting from Drive does. */
+    fun clear(exclude: Set<String> = emptySet()) {
         synchronized(lock) {
-            if (ready) root.deleteRecursively()
+            if (!ready) return
+            if (exclude.isEmpty()) {
+                root.deleteRecursively()
+                return
+            }
+            root.listFiles()?.forEach { child ->
+                if (child.name !in exclude) child.deleteRecursively()
+            }
         }
     }
 

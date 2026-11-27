@@ -24,4 +24,6 @@
     <!-- Other devices' listening and what this one last uploaded: Drive sync's, and re-fetched from Drive. -->
     <exclude domain="file" path="listening-peers/" />
     <exclude domain="file" path="listening-synced/" />
+    <!-- SAF folder permissions in the local BitChord bridge are scoped to this install and phone. -->
+    <exclude domain="file" path="bitchord-bridge.json" />
 </full-backup-content>

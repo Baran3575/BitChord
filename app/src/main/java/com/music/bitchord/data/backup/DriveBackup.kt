@@ -21,6 +21,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.data.stats.ListeningStats
+import com.music.bitchord.data.stats.BitChordBridge
 import com.music.bitchord.data.stats.PeerListening
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -255,7 +256,7 @@ object DriveBackup {
             )
         }
         _devices.value = Devices.Unknown
-        PeerListening.clear()
+        PeerListening.clear(exclude = BitChordBridge.PROTECTED_PEER_IDS)
         ListeningStats.peersChanged()
         scope.launch { DriveAuth.revoke(context.applicationContext, account) }
     }

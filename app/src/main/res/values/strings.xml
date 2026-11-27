@@ -1507,4 +1507,38 @@
     <string name="lyrics_api_key_badge_set">Set</string>
     <string name="lyrics_api_key_badge_optional">Optional</string>
     <string name="lyrics_word_synced_badge">Word-synced</string>
+
+    <string name="bitchord_bridge_title">BitChord bridge</string>
+    <string name="bitchord_bridge_subtitle">Merge BitChord listening time without overwriting BitChord+</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord detected — bring listening time into BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s from BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">Combines listening history from original BitChord into BitChord+ Replay without double-counting or erasing local listening.</string>
+    <string name="bitchord_bridge_app_installed">Original BitChord is installed on this device.</string>
+    <string name="bitchord_bridge_app_not_installed">Original BitChord is not installed on this device.</string>
+    <string name="bitchord_bridge_folder_label">Auto-sync folder: %1$s</string>
+    <string name="bitchord_bridge_include_settings">Also import settings &amp; search history</string>
+    <string name="bitchord_bridge_import_file">Import BitChord backup</string>
+    <string name="bitchord_bridge_link_folder">Link backup folder (auto-sync)</string>
+    <string name="bitchord_bridge_change_folder">Change linked folder</string>
+    <string name="bitchord_bridge_sync_now">Sync folder now</string>
+    <string name="bitchord_bridge_unlink_folder">Unlink</string>
+    <string name="bitchord_bridge_open_original">Open BitChord to export</string>
+    <string name="bitchord_bridge_clear_data">Clear bridged stats</string>
+    <string name="bitchord_bridge_import_succeeded">Merged %1$s (%2$s) from BitChord</string>
+    <string name="bitchord_bridge_sync_up_to_date">BitChord bridge is already up to date</string>
+    <string name="bitchord_bridge_folder_empty">Folder linked — no BitChord backup JSON found yet</string>
+    <string name="bitchord_bridge_sync_failed">Bridge sync failed: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
+    <string name="bitchord_bridge_duration_m">%1$dm</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ Live Bridge</string>
+    <string name="bitchord_bridge_live_active">Live tracking active: listens in BitChord sync automatically.</string>
+    <string name="bitchord_bridge_live_inactive">Live tracking off — grant Notification Access so new BitChord plays sync automatically.</string>
+    <string name="bitchord_bridge_enable_live">Enable live tracking</string>
+    <string name="bitchord_bridge_banner_title">Bring your BitChord Replay here</string>
+    <string name="bitchord_bridge_banner_body">Turn on Live Tracking for new plays in original BitChord, and import a one-time backup file for your past listening time &amp; top albums.</string>
+    <string name="bitchord_bridge_prompt_title">Connect original BitChord</string>
+    <string name="bitchord_bridge_prompt_body">Original BitChord is installed on this device. Grant Notification Access to record new BitChord plays automatically, and optionally import a backup file for your past listening history.</string>
+    <string name="bitchord_bridge_not_now">Not now</string>
+    <string name="bitchord_bridge_dismiss">Dismiss</string>
 </resources>

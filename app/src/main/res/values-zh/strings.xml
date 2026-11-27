@@ -1607,4 +1607,38 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">BitChord 桥接</string>
+    <string name="bitchord_bridge_subtitle">在不覆盖 BitChord+ 的情况下合并 BitChord 收听时长</string>
+    <string name="bitchord_bridge_subtitle_installed">检测到 BitChord — 将收听时长导入 BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">来自 BitChord %1$s · %2$s</string>
+    <string name="bitchord_bridge_description">将原版 BitChord 的收听历史合并到 BitChord+ Replay，不会重复统计或清除本地数据。</string>
+    <string name="bitchord_bridge_app_installed">此设备已安装原版 BitChord。</string>
+    <string name="bitchord_bridge_app_not_installed">此设备未安装原版 BitChord。</string>
+    <string name="bitchord_bridge_folder_label">自动同步文件夹：%1$s</string>
+    <string name="bitchord_bridge_include_settings">同时导入设置和搜索历史</string>
+    <string name="bitchord_bridge_import_file">导入 BitChord 备份</string>
+    <string name="bitchord_bridge_link_folder">关联备份文件夹（自动同步）</string>
+    <string name="bitchord_bridge_change_folder">更换已关联文件夹</string>
+    <string name="bitchord_bridge_sync_now">立即同步文件夹</string>
+    <string name="bitchord_bridge_unlink_folder">取消关联</string>
+    <string name="bitchord_bridge_open_original">打开 BitChord 导出</string>
+    <string name="bitchord_bridge_clear_data">清除桥接数据</string>
+    <string name="bitchord_bridge_import_succeeded">已从 BitChord 合并 %1$s（%2$s）</string>
+    <string name="bitchord_bridge_sync_up_to_date">BitChord 桥接已是最新</string>
+    <string name="bitchord_bridge_folder_empty">文件夹已关联 — 暂未找到 BitChord 备份 JSON</string>
+    <string name="bitchord_bridge_sync_failed">桥接同步失败：%1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$d小时%2$d分钟</string>
+    <string name="bitchord_bridge_duration_m">%1$d分钟</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ 实时桥接</string>
+    <string name="bitchord_bridge_live_active">实时同步已开启：BitChord 的播放会自动写入统计。</string>
+    <string name="bitchord_bridge_live_inactive">实时同步未开启 — 授予通知使用权即可自动记录原版 BitChord 播放。</string>
+    <string name="bitchord_bridge_enable_live">开启实时同步</string>
+    <string name="bitchord_bridge_banner_title">将 BitChord Replay 迁移到此处</string>
+    <string name="bitchord_bridge_banner_body">开启实时同步以记录新播放，并导入一次备份文件以合并历史收听时长和专辑。</string>
+    <string name="bitchord_bridge_prompt_title">连接原版 BitChord</string>
+    <string name="bitchord_bridge_prompt_body">检测到原版 BitChord。授予通知权限即可自动记录新播放，也可以导入备份迁移过往统计。</string>
+    <string name="bitchord_bridge_not_now">暂不</string>
+    <string name="bitchord_bridge_dismiss">关闭</string>
 </resources>

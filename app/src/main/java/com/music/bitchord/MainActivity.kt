@@ -80,6 +80,7 @@ import androidx.compose.material.icons.rounded.Upgrade
 import com.music.bitchord.data.listentogether.ServerConnectionState
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -91,6 +92,7 @@ import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.music.bitchord.data.stats.BitChordBridge
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -5796,6 +5798,72 @@ private fun BitChordApp(
                     },
                 )
             }
+        }
+
+        val bridgeStatus by BitChordBridge.status.collectAsStateWithLifecycle()
+        val bridgePicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument(),
+        ) { source ->
+            if (source == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                BitChordBridge.importFromUri(context, source)
+                BitChordBridge.dismissStartupPrompt()
+            }
+        }
+        val showBridgePrompt = onboardingComplete &&
+            !showUpdateDialog &&
+            bridgeStatus.originalInstalled &&
+            !bridgeStatus.promptDismissed &&
+            !bridgeStatus.hasBridgedData &&
+            !bridgeStatus.notificationAccessEnabled
+        if (showBridgePrompt) {
+            AlertDialog(
+                onDismissRequest = { BitChordBridge.dismissStartupPrompt() },
+                title = { Text(stringResource(R.string.bitchord_bridge_prompt_title)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.bitchord_bridge_prompt_body),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(
+                            onClick = { BitChordBridge.openNotificationListenerSettings(context) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.bitchord_bridge_enable_live),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        TextButton(
+                            onClick = { BitChordBridge.launchOriginalApp(context) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.bitchord_bridge_open_original),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                bridgePicker.launch(arrayOf("application/json", "text/plain", "*/*"))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.bitchord_bridge_import_file),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { BitChordBridge.dismissStartupPrompt() }) {
+                        Text(stringResource(R.string.bitchord_bridge_not_now))
+                    }
+                },
+            )
         }
 
         if (showLyricsSources) {

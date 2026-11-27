@@ -1588,4 +1588,38 @@
     <string name="replay_year_unmute">Hikayenin sesini aç</string>
     <string name="show_best_part">En İyi Bölüm düğmesi</string>
     <string name="show_best_part_subtitle">Kapak üzerinde şarkının en çok tekrar çalınan bölümüne atlayan bir düğme gösterir</string>
+
+    <string name="bitchord_bridge_title">BitChord köprüsü</string>
+    <string name="bitchord_bridge_subtitle">BitChord dinleme süreni BitChord+ verilerini silmeden birleştir</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord bulundu — dinleme süreni BitChord+\'a aktar</string>
+    <string name="bitchord_bridge_subtitle_synced">BitChord\'dan %1$s · %2$s</string>
+    <string name="bitchord_bridge_description">Orijinal BitChord dinleme geçmişini çift saymadan ve yerel verileri silmeden BitChord+ Replay\'e ekler.</string>
+    <string name="bitchord_bridge_app_installed">Orijinal BitChord bu cihazda yüklü.</string>
+    <string name="bitchord_bridge_app_not_installed">Orijinal BitChord bu cihazda yüklü değil.</string>
+    <string name="bitchord_bridge_folder_label">Otomatik klasör: %1$s</string>
+    <string name="bitchord_bridge_include_settings">Ayarları ve arama geçmişini de içe aktar</string>
+    <string name="bitchord_bridge_import_file">BitChord yedeğini içe aktar</string>
+    <string name="bitchord_bridge_link_folder">Yedek klasörü bağla (otomatik)</string>
+    <string name="bitchord_bridge_change_folder">Bağlı klasörü değiştir</string>
+    <string name="bitchord_bridge_sync_now">Klasörü şimdi eşitle</string>
+    <string name="bitchord_bridge_unlink_folder">Bağlantıyı kes</string>
+    <string name="bitchord_bridge_open_original">Dışa aktarmak için BitChord\'u aç</string>
+    <string name="bitchord_bridge_clear_data">Köprü verilerini temizle</string>
+    <string name="bitchord_bridge_import_succeeded">BitChord\'dan %1$s (%2$s) birleştirildi</string>
+    <string name="bitchord_bridge_sync_up_to_date">BitChord köprüsü zaten güncel</string>
+    <string name="bitchord_bridge_folder_empty">Klasör bağlandı — henüz BitChord yedeği bulunamadı</string>
+    <string name="bitchord_bridge_sync_failed">Köprü eşitleme başarısız: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$ds %2$ddk</string>
+    <string name="bitchord_bridge_duration_m">%1$ddk</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ Canlı Köprü</string>
+    <string name="bitchord_bridge_live_active">Canlı takip açık: BitChord dinlemeleri otomatik aktarılır.</string>
+    <string name="bitchord_bridge_live_inactive">Canlı takip kapalı — BitChord dinlemelerinin otomatik aktarılması için Bildirim Erişimi ver.</string>
+    <string name="bitchord_bridge_enable_live">Canlı takibi aç</string>
+    <string name="bitchord_bridge_banner_title">BitChord Replay verilerini buraya aktar</string>
+    <string name="bitchord_bridge_banner_body">Yeni çalmalar için Canlı Takibi aç; eski dinleme süresi, şarkı ve en çok dinlenen albümler için tek seferlik yedek dosyası seç.</string>
+    <string name="bitchord_bridge_prompt_title">Orijinal BitChord\'a bağlan</string>
+    <string name="bitchord_bridge_prompt_body">Bu cihazda orijinal BitChord yüklü. Yeni çalmaların otomatik kaydedilmesi için Bildirim Erişimi ver ve eski geçmişin için tek seferlik yedek dosyası içe aktar.</string>
+    <string name="bitchord_bridge_not_now">Şimdi değil</string>
+    <string name="bitchord_bridge_dismiss">Kapat</string>
 </resources>

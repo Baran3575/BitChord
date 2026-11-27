@@ -1636,4 +1636,38 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">Ponte BitChord</string>
+    <string name="bitchord_bridge_subtitle">Una seu tempo de reprodução do BitChord sem sobrescrever o BitChord+</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord detectado — traga seu histórico para o BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s do BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">Combina o histórico do BitChord original no BitChord+ Replay sem contagem dupla nem apagar seus dados locais.</string>
+    <string name="bitchord_bridge_app_installed">O BitChord original está instalado neste dispositivo.</string>
+    <string name="bitchord_bridge_app_not_installed">O BitChord original não está instalado neste dispositivo.</string>
+    <string name="bitchord_bridge_folder_label">Pasta automática: %1$s</string>
+    <string name="bitchord_bridge_include_settings">Importar também ajustes e histórico de busca</string>
+    <string name="bitchord_bridge_import_file">Importar backup do BitChord</string>
+    <string name="bitchord_bridge_link_folder">Vincular pasta de backup (auto)</string>
+    <string name="bitchord_bridge_change_folder">Alterar pasta vinculada</string>
+    <string name="bitchord_bridge_sync_now">Sincronizar pasta agora</string>
+    <string name="bitchord_bridge_unlink_folder">Desvincular</string>
+    <string name="bitchord_bridge_open_original">Abrir BitChord para exportar</string>
+    <string name="bitchord_bridge_clear_data">Limpar dados da ponte</string>
+    <string name="bitchord_bridge_import_succeeded">Combinado %1$s (%2$s) do BitChord</string>
+    <string name="bitchord_bridge_sync_up_to_date">A ponte BitChord já está atualizada</string>
+    <string name="bitchord_bridge_folder_empty">Pasta vinculada — nenhum backup JSON do BitChord encontrado</string>
+    <string name="bitchord_bridge_sync_failed">Falha na sincronização da ponte: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
+    <string name="bitchord_bridge_duration_m">%1$dm</string>
+
+    <string name="bitchord_bridge_live_service_label">Ponte ao vivo BitChord+</string>
+    <string name="bitchord_bridge_live_active">Rastreamento ao vivo ativo: o que toca no BitChord sincroniza automaticamente.</string>
+    <string name="bitchord_bridge_live_inactive">Rastreamento ao vivo desativado — conceda acesso às notificações para registrar automaticamente o BitChord.</string>
+    <string name="bitchord_bridge_enable_live">Ativar rastreamento ao vivo</string>
+    <string name="bitchord_bridge_banner_title">Traga seu Replay do BitChord</string>
+    <string name="bitchord_bridge_banner_body">Ative o rastreamento ao vivo para novas faixas e importe um backup único para histórico e álbuns.</string>
+    <string name="bitchord_bridge_prompt_title">Conectar BitChord original</string>
+    <string name="bitchord_bridge_prompt_body">O BitChord original está instalado. Conceda acesso às notificações para registro automático e importe seu backup antigo.</string>
+    <string name="bitchord_bridge_not_now">Agora não</string>
+    <string name="bitchord_bridge_dismiss">Dispensar</string>
 </resources>

@@ -1547,4 +1547,38 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">Cầu nối BitChord</string>
+    <string name="bitchord_bridge_subtitle">Gộp thời gian nghe BitChord mà không ghi đè BitChord+</string>
+    <string name="bitchord_bridge_subtitle_installed">Đã tìm thấy BitChord — đưa thời gian nghe sang BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s từ BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">Gộp lịch sử nghe từ BitChord gốc vào BitChord+ Replay mà không đếm trùng hay xóa dữ liệu cục bộ.</string>
+    <string name="bitchord_bridge_app_installed">BitChord gốc đã được cài trên thiết bị này.</string>
+    <string name="bitchord_bridge_app_not_installed">BitChord gốc chưa được cài trên thiết bị này.</string>
+    <string name="bitchord_bridge_folder_label">Thư mục tự đồng bộ: %1$s</string>
+    <string name="bitchord_bridge_include_settings">Nhập cả cài đặt và lịch sử tìm kiếm</string>
+    <string name="bitchord_bridge_import_file">Nhập bản sao lưu BitChord</string>
+    <string name="bitchord_bridge_link_folder">Liên kết thư mục sao lưu (tự động)</string>
+    <string name="bitchord_bridge_change_folder">Đổi thư mục đã liên kết</string>
+    <string name="bitchord_bridge_sync_now">Đồng bộ thư mục ngay</string>
+    <string name="bitchord_bridge_unlink_folder">Hủy liên kết</string>
+    <string name="bitchord_bridge_open_original">Mở BitChord để xuất</string>
+    <string name="bitchord_bridge_clear_data">Xóa dữ liệu cầu nối</string>
+    <string name="bitchord_bridge_import_succeeded">Đã gộp %1$s (%2$s) từ BitChord</string>
+    <string name="bitchord_bridge_sync_up_to_date">Cầu nối BitChord đã mới nhất</string>
+    <string name="bitchord_bridge_folder_empty">Đã liên kết thư mục — chưa tìm thấy tệp JSON BitChord</string>
+    <string name="bitchord_bridge_sync_failed">Đồng bộ cầu nối thất bại: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$dg %2$dp</string>
+    <string name="bitchord_bridge_duration_m">%1$dp</string>
+
+    <string name="bitchord_bridge_live_service_label">Cầu nối trực tiếp BitChord+</string>
+    <string name="bitchord_bridge_live_active">Theo dõi trực tiếp đang bật: lượt nghe trong BitChord tự đồng bộ.</string>
+    <string name="bitchord_bridge_live_inactive">Theo dõi trực tiếp đang tắt — cấp quyền Truy cập thông báo để tự ghi lại từ BitChord.</string>
+    <string name="bitchord_bridge_enable_live">Bật theo dõi trực tiếp</string>
+    <string name="bitchord_bridge_banner_title">Đưa BitChord Replay sang đây</string>
+    <string name="bitchord_bridge_banner_body">Bật Theo dõi trực tiếp cho lượt nghe mới và nhập bản sao lưu một lần cho lịch sử &amp; album cũ.</string>
+    <string name="bitchord_bridge_prompt_title">Kết nối BitChord gốc</string>
+    <string name="bitchord_bridge_prompt_body">Đã thấy BitChord gốc trên thiết bị. Cấp quyền Thông báo để tự động ghi lượt nghe mới và nhập bản sao lưu cũ.</string>
+    <string name="bitchord_bridge_not_now">Để sau</string>
+    <string name="bitchord_bridge_dismiss">Đóng</string>
 </resources>

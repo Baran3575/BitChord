@@ -1665,4 +1665,38 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="show_best_part">Best Part button</string>
     <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+
+    <string name="bitchord_bridge_title">Мост BitChord</string>
+    <string name="bitchord_bridge_subtitle">Объедините время прослушивания BitChord без перезаписи BitChord+</string>
+    <string name="bitchord_bridge_subtitle_installed">BitChord найден — перенесите статистику в BitChord+</string>
+    <string name="bitchord_bridge_subtitle_synced">%1$s из BitChord · %2$s</string>
+    <string name="bitchord_bridge_description">Объединяет историю прослушивания оригинального BitChord с BitChord+ Replay без двойного подсчёта и потери локальных данных.</string>
+    <string name="bitchord_bridge_app_installed">Оригинальный BitChord установлен на этом устройстве.</string>
+    <string name="bitchord_bridge_app_not_installed">Оригинальный BitChord не установлен на этом устройстве.</string>
+    <string name="bitchord_bridge_folder_label">Папка автосинхронизации: %1$s</string>
+    <string name="bitchord_bridge_include_settings">Также импортировать настройки и историю поиска</string>
+    <string name="bitchord_bridge_import_file">Импортировать копию BitChord</string>
+    <string name="bitchord_bridge_link_folder">Привязать папку копий (авто)</string>
+    <string name="bitchord_bridge_change_folder">Изменить привязанную папку</string>
+    <string name="bitchord_bridge_sync_now">Синхронизировать папку</string>
+    <string name="bitchord_bridge_unlink_folder">Отвязать</string>
+    <string name="bitchord_bridge_open_original">Открыть BitChord для экспорта</string>
+    <string name="bitchord_bridge_clear_data">Очистить данные моста</string>
+    <string name="bitchord_bridge_import_succeeded">Объединено %1$s (%2$s) из BitChord</string>
+    <string name="bitchord_bridge_sync_up_to_date">Мост BitChord уже актуален</string>
+    <string name="bitchord_bridge_folder_empty">Папка привязана — файл JSON BitChord пока не найден</string>
+    <string name="bitchord_bridge_sync_failed">Ошибка синхронизации моста: %1$s</string>
+    <string name="bitchord_bridge_duration_hm">%1$d ч %2$d м</string>
+    <string name="bitchord_bridge_duration_m">%1$d м</string>
+
+    <string name="bitchord_bridge_live_service_label">Живой мост BitChord+</string>
+    <string name="bitchord_bridge_live_active">Живой учёт включён: прослушивания в BitChord передаются автоматически.</string>
+    <string name="bitchord_bridge_live_inactive">Живой учёт выключен — разрешите доступ к уведомлениям для автосинхронизации BitChord.</string>
+    <string name="bitchord_bridge_enable_live">Включить живой учёт</string>
+    <string name="bitchord_bridge_banner_title">Перенесите BitChord Replay сюда</string>
+    <string name="bitchord_bridge_banner_body">Включите живой учёт для новых треков и один раз импортируйте копию для старой истории и альбомов.</string>
+    <string name="bitchord_bridge_prompt_title">Подключить оригинальный BitChord</string>
+    <string name="bitchord_bridge_prompt_body">На устройстве найден оригинальный BitChord. Дайте доступ к уведомлениям для автозаписи и импортируйте файл резервной копии.</string>
+    <string name="bitchord_bridge_not_now">Не сейчас</string>
+    <string name="bitchord_bridge_dismiss">Скрыть</string>
 </resources>
