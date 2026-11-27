@@ -1570,4 +1570,15 @@
     <string name="bitchord_bridge_sync_failed">Đồng bộ cầu nối thất bại: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$dg %2$dp</string>
     <string name="bitchord_bridge_duration_m">%1$dp</string>
+
+    <string name="bitchord_bridge_live_service_label">Cầu nối trực tiếp BitChord+</string>
+    <string name="bitchord_bridge_live_active">Theo dõi trực tiếp đang bật: lượt nghe trong BitChord tự đồng bộ.</string>
+    <string name="bitchord_bridge_live_inactive">Theo dõi trực tiếp đang tắt — cấp quyền Truy cập thông báo để tự ghi lại từ BitChord.</string>
+    <string name="bitchord_bridge_enable_live">Bật theo dõi trực tiếp</string>
+    <string name="bitchord_bridge_banner_title">Đưa BitChord Replay sang đây</string>
+    <string name="bitchord_bridge_banner_body">Bật Theo dõi trực tiếp cho lượt nghe mới và nhập bản sao lưu một lần cho lịch sử &amp; album cũ.</string>
+    <string name="bitchord_bridge_prompt_title">Kết nối BitChord gốc</string>
+    <string name="bitchord_bridge_prompt_body">Đã thấy BitChord gốc trên thiết bị. Cấp quyền Thông báo để tự động ghi lượt nghe mới và nhập bản sao lưu cũ.</string>
+    <string name="bitchord_bridge_not_now">Để sau</string>
+    <string name="bitchord_bridge_dismiss">Đóng</string>
 </resources>

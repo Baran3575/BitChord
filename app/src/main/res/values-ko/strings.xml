@@ -1503,4 +1503,15 @@
     <string name="bitchord_bridge_sync_failed">브리지 동기화 실패: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$d시간 %2$d분</string>
     <string name="bitchord_bridge_duration_m">%1$d분</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ 라이브 브리지</string>
+    <string name="bitchord_bridge_live_active">라이브 추적 활성: BitChord 재생 기록이 자동 동기화됩니다.</string>
+    <string name="bitchord_bridge_live_inactive">라이브 추적 꺼짐 — BitChord 재생을 자동 기록하려면 알림 접근 권한을 허용하세요.</string>
+    <string name="bitchord_bridge_enable_live">라이브 추적 켜기</string>
+    <string name="bitchord_bridge_banner_title">BitChord Replay 기록 가져오기</string>
+    <string name="bitchord_bridge_banner_body">새 재생은 라이브 추적으로 자동 기록하고, 이전 청취 시간과 앨범은 백업 파일 한 번으로 가져오세요.</string>
+    <string name="bitchord_bridge_prompt_title">기존 BitChord 연결</string>
+    <string name="bitchord_bridge_prompt_body">기존 BitChord가 설치되어 있습니다. 알림 접근 권한으로 자동 기록을 켜고 필요하면 이전 백업을 가져오세요.</string>
+    <string name="bitchord_bridge_not_now">나중에</string>
+    <string name="bitchord_bridge_dismiss">닫기</string>
 </resources>

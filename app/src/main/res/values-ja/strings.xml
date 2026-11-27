@@ -1631,4 +1631,15 @@
     <string name="bitchord_bridge_sync_failed">ブリッジの同期に失敗しました: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$d時間%2$d分</string>
     <string name="bitchord_bridge_duration_m">%1$d分</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ ライブブリッジ</string>
+    <string name="bitchord_bridge_live_active">ライブ記録が有効：BitChord での再生が自動同期されます。</string>
+    <string name="bitchord_bridge_live_inactive">ライブ記録が無効 — 通知アクセスを許可すると BitChord の再生を自動記録します。</string>
+    <string name="bitchord_bridge_enable_live">ライブ記録を有効化</string>
+    <string name="bitchord_bridge_banner_title">BitChord Replay を引き継ぐ</string>
+    <string name="bitchord_bridge_banner_body">新しい再生にはライブ記録を有効にし、過去の再生時間とアルバムにはバックアップを一度読み込んでください。</string>
+    <string name="bitchord_bridge_prompt_title">元の BitChord と連携</string>
+    <string name="bitchord_bridge_prompt_body">元の BitChord が見つかりました。通知アクセスで自動記録を有効化し、必要に応じて過去のバックアップを読み込みます。</string>
+    <string name="bitchord_bridge_not_now">後で</string>
+    <string name="bitchord_bridge_dismiss">閉じる</string>
 </resources>

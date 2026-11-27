@@ -1630,4 +1630,15 @@
     <string name="bitchord_bridge_sync_failed">桥接同步失败：%1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$d小时%2$d分钟</string>
     <string name="bitchord_bridge_duration_m">%1$d分钟</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ 实时桥接</string>
+    <string name="bitchord_bridge_live_active">实时同步已开启：BitChord 的播放会自动写入统计。</string>
+    <string name="bitchord_bridge_live_inactive">实时同步未开启 — 授予通知使用权即可自动记录原版 BitChord 播放。</string>
+    <string name="bitchord_bridge_enable_live">开启实时同步</string>
+    <string name="bitchord_bridge_banner_title">将 BitChord Replay 迁移到此处</string>
+    <string name="bitchord_bridge_banner_body">开启实时同步以记录新播放，并导入一次备份文件以合并历史收听时长和专辑。</string>
+    <string name="bitchord_bridge_prompt_title">连接原版 BitChord</string>
+    <string name="bitchord_bridge_prompt_body">检测到原版 BitChord。授予通知权限即可自动记录新播放，也可以导入备份迁移过往统计。</string>
+    <string name="bitchord_bridge_not_now">暂不</string>
+    <string name="bitchord_bridge_dismiss">关闭</string>
 </resources>

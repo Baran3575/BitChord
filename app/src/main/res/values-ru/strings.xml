@@ -1688,4 +1688,15 @@
     <string name="bitchord_bridge_sync_failed">Ошибка синхронизации моста: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$d ч %2$d м</string>
     <string name="bitchord_bridge_duration_m">%1$d м</string>
+
+    <string name="bitchord_bridge_live_service_label">Живой мост BitChord+</string>
+    <string name="bitchord_bridge_live_active">Живой учёт включён: прослушивания в BitChord передаются автоматически.</string>
+    <string name="bitchord_bridge_live_inactive">Живой учёт выключен — разрешите доступ к уведомлениям для автосинхронизации BitChord.</string>
+    <string name="bitchord_bridge_enable_live">Включить живой учёт</string>
+    <string name="bitchord_bridge_banner_title">Перенесите BitChord Replay сюда</string>
+    <string name="bitchord_bridge_banner_body">Включите живой учёт для новых треков и один раз импортируйте копию для старой истории и альбомов.</string>
+    <string name="bitchord_bridge_prompt_title">Подключить оригинальный BitChord</string>
+    <string name="bitchord_bridge_prompt_body">На устройстве найден оригинальный BitChord. Дайте доступ к уведомлениям для автозаписи и импортируйте файл резервной копии.</string>
+    <string name="bitchord_bridge_not_now">Не сейчас</string>
+    <string name="bitchord_bridge_dismiss">Скрыть</string>
 </resources>

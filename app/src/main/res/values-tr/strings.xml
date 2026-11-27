@@ -1611,4 +1611,15 @@
     <string name="bitchord_bridge_sync_failed">Köprü eşitleme başarısız: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$ds %2$ddk</string>
     <string name="bitchord_bridge_duration_m">%1$ddk</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ Canlı Köprü</string>
+    <string name="bitchord_bridge_live_active">Canlı takip açık: BitChord dinlemeleri otomatik aktarılır.</string>
+    <string name="bitchord_bridge_live_inactive">Canlı takip kapalı — BitChord dinlemelerinin otomatik aktarılması için Bildirim Erişimi ver.</string>
+    <string name="bitchord_bridge_enable_live">Canlı takibi aç</string>
+    <string name="bitchord_bridge_banner_title">BitChord Replay verilerini buraya aktar</string>
+    <string name="bitchord_bridge_banner_body">Yeni çalmalar için Canlı Takibi aç; eski dinleme süresi, şarkı ve en çok dinlenen albümler için tek seferlik yedek dosyası seç.</string>
+    <string name="bitchord_bridge_prompt_title">Orijinal BitChord\'a bağlan</string>
+    <string name="bitchord_bridge_prompt_body">Bu cihazda orijinal BitChord yüklü. Yeni çalmaların otomatik kaydedilmesi için Bildirim Erişimi ver ve eski geçmişin için tek seferlik yedek dosyası içe aktar.</string>
+    <string name="bitchord_bridge_not_now">Şimdi değil</string>
+    <string name="bitchord_bridge_dismiss">Kapat</string>
 </resources>

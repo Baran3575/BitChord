@@ -1654,4 +1654,15 @@
     <string name="bitchord_bridge_sync_failed">Brückensynchronisierung fehlgeschlagen: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
     <string name="bitchord_bridge_duration_m">%1$dm</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ Live-Brücke</string>
+    <string name="bitchord_bridge_live_active">Live-Tracking aktiv: Wiedergaben in BitChord werden automatisch übernommen.</string>
+    <string name="bitchord_bridge_live_inactive">Live-Tracking aus — Benachrichtigungszugriff erteilen, um neue BitChord-Titel automatisch zu erfassen.</string>
+    <string name="bitchord_bridge_enable_live">Live-Tracking aktivieren</string>
+    <string name="bitchord_bridge_banner_title">BitChord-Replay hierher übertragen</string>
+    <string name="bitchord_bridge_banner_body">Aktiviere Live-Tracking für neue Wiedergaben in BitChord und importiere einmalig eine Sicherungsdatei für ältere Hörzeit &amp; Top-Alben.</string>
+    <string name="bitchord_bridge_prompt_title">Originales BitChord verbinden</string>
+    <string name="bitchord_bridge_prompt_body">Original-BitChord ist installiert. Erteile den Benachrichtigungszugriff für automatische Live-Erfassung und importiere optional dein altes Backup.</string>
+    <string name="bitchord_bridge_not_now">Später</string>
+    <string name="bitchord_bridge_dismiss">Ausblenden</string>
 </resources>

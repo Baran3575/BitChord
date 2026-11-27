@@ -1626,4 +1626,15 @@
     <string name="bitchord_bridge_sync_failed">Error al sincronizar el puente: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
     <string name="bitchord_bridge_duration_m">%1$dm</string>
+
+    <string name="bitchord_bridge_live_service_label">Puente en vivo de BitChord+</string>
+    <string name="bitchord_bridge_live_active">Seguimiento en vivo activo: lo que escuchas en BitChord se sincroniza automáticamente.</string>
+    <string name="bitchord_bridge_live_inactive">Seguimiento en vivo desactivado: concede acceso a notificaciones para registrar lo nuevo de BitChord.</string>
+    <string name="bitchord_bridge_enable_live">Activar seguimiento en vivo</string>
+    <string name="bitchord_bridge_banner_title">Trae tu Replay de BitChord aquí</string>
+    <string name="bitchord_bridge_banner_body">Activa el seguimiento en vivo para futuras escuchas y selecciona una copia de seguridad para tu historial y álbumes.</string>
+    <string name="bitchord_bridge_prompt_title">Conectar BitChord original</string>
+    <string name="bitchord_bridge_prompt_body">BitChord original está instalado. Concede acceso a notificaciones para registrar nuevas escuchas e importa una copia para el historial.</string>
+    <string name="bitchord_bridge_not_now">Ahora no</string>
+    <string name="bitchord_bridge_dismiss">Cerrar</string>
 </resources>

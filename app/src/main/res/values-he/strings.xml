@@ -1659,4 +1659,15 @@
     <string name="bitchord_bridge_sync_failed">סנכרון הגשר נכשל: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$dש׳ %2$dד׳</string>
     <string name="bitchord_bridge_duration_m">%1$dד׳</string>
+
+    <string name="bitchord_bridge_live_service_label">גשר חי BitChord+</string>
+    <string name="bitchord_bridge_live_active">מעקב חי פעיל: האזנות ב-BitChord מסתנכרנות אוטומטית.</string>
+    <string name="bitchord_bridge_live_inactive">מעקב חי כבוי — אשר גישת התראות כדי לסנכרן השמעות מ-BitChord אוטומטית.</string>
+    <string name="bitchord_bridge_enable_live">הפעל מעקב חי</string>
+    <string name="bitchord_bridge_banner_title">העבר את BitChord Replay לכאן</string>
+    <string name="bitchord_bridge_banner_body">הפעל מעקב חי להשמעות חדשות וייבא קובץ גיבוי פעם אחת עבור היסטוריה ואלבומים.</string>
+    <string name="bitchord_bridge_prompt_title">חבר את BitChord המקורי</string>
+    <string name="bitchord_bridge_prompt_body">BitChord המקורי מותקן. אשר גישת התראות לרישום אוטומטי וייבא גיבוי להיסטוריה קודמת.</string>
+    <string name="bitchord_bridge_not_now">לא עכשיו</string>
+    <string name="bitchord_bridge_dismiss">סגור</string>
 </resources>

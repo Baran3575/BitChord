@@ -195,4 +195,44 @@ class BitChordBridgeTest {
         val chosen = BitChordBridge.selectLatestBackupCandidate(candidates)
         assertEquals("3", chosen?.documentId)
     }
+
+    @Test
+    fun recordLivePlayback_accumulatesTracksArtistsAlbumsAndCleansOverlapOnNewerBackup() = runBlocking {
+        // 2026-11-27T12:00:00Z
+        val atMs = 1795780800000L
+        BitChordBridge.recordLivePlayback(
+            trackId = "dQw4w9WgXcQ",
+            title = "Live Track",
+            artist = "Live Artist feat. Guest",
+            album = "Live Album",
+            albumId = "MPREb_live_album",
+            artistId = "UC_live_artist",
+            artUrl = "https://example.com/art.jpg",
+            playedMs = 45_000L,
+            countsAsPlay = true,
+            atMs = atMs,
+        )
+
+        val status = BitChordBridge.status.value
+        assertTrue(status.hasLiveStats)
+        assertTrue(status.hasBridgedData)
+        assertEquals(45_000L, status.liveTotalMs)
+
+        val liveBuckets = PeerListening.deviceBuckets(BitChordBridge.LIVE_PEER_ID)
+        assertEquals(1, liveBuckets.size)
+        val nov = liveBuckets.single()
+        assertEquals("Live Album", nov.albums.single().name)
+        assertEquals("Live Artist", nov.artists.single().name)
+        assertEquals(1, nov.tracks.single().plays)
+        assertEquals(45_000L, nov.albums.single().ms)
+
+        // Importing a backup exported strictly after the live events replaces temporary live cache cleanly.
+        val newerBackup = backupBytes(
+            buckets = listOf(bucket("2026-11", "dQw4w9WgXcQ", ms = 120_000L, plays = 2)),
+            exportedAt = "2026-11-28T00:00:00Z",
+        )
+        BitChordBridge.applyBackupBytes(newerBackup)
+        assertTrue(PeerListening.deviceBuckets(BitChordBridge.LIVE_PEER_ID).isEmpty())
+        assertEquals(120_000L, BitChordBridge.status.value.combinedTotalMs)
+    }
 }

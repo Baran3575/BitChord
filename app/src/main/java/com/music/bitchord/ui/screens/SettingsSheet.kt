@@ -2152,12 +2152,29 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
+                        if (bridgeStatus.originalInstalled) {
+                            Text(
+                                text = stringResource(
+                                    if (bridgeStatus.notificationAccessEnabled) {
+                                        R.string.bitchord_bridge_live_active
+                                    } else {
+                                        R.string.bitchord_bridge_live_inactive
+                                    },
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (bridgeStatus.notificationAccessEnabled) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
                         if (bridgeStatus.hasBridgedData) {
                             Text(
                                 text = stringResource(
                                     R.string.bitchord_bridge_subtitle_synced,
-                                    formatBridgeDuration(context, bridgeStatus.bridgedTotalMs),
-                                    context.countOfMonths(bridgeStatus.bridgedMonths),
+                                    BitChordBridge.formatDuration(context, bridgeStatus.combinedTotalMs),
+                                    context.countOfMonths(bridgeStatus.combinedMonths),
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium,
@@ -2258,6 +2275,17 @@ fun SettingsScreen(
                             ) {
                                 Text(
                                     text = stringResource(R.string.bitchord_bridge_link_folder),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                        if (bridgeStatus.originalInstalled && !bridgeStatus.notificationAccessEnabled) {
+                            TextButton(
+                                onClick = { BitChordBridge.openNotificationListenerSettings(context) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.bitchord_bridge_enable_live),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -3532,16 +3560,8 @@ internal fun <T> ChoiceGroup(
     }
 }
 
-private fun formatBridgeDuration(context: Context, totalMs: Long): String {
-    val totalMinutes = (totalMs / 60_000L).coerceAtLeast(0L)
-    val hours = totalMinutes / 60L
-    val minutes = totalMinutes % 60L
-    return if (hours > 0L) {
-        context.getString(R.string.bitchord_bridge_duration_hm, hours, minutes)
-    } else {
-        context.getString(R.string.bitchord_bridge_duration_m, minutes)
-    }
-}
+private fun formatBridgeDuration(context: Context, totalMs: Long): String =
+    BitChordBridge.formatDuration(context, totalMs)
 
 private fun formatBridgeRowSubtitle(
     context: Context,
@@ -3549,9 +3569,11 @@ private fun formatBridgeRowSubtitle(
 ): String = when {
     status.hasBridgedData -> context.getString(
         R.string.bitchord_bridge_subtitle_synced,
-        formatBridgeDuration(context, status.bridgedTotalMs),
-        context.countOfMonths(status.bridgedMonths),
+        BitChordBridge.formatDuration(context, status.combinedTotalMs),
+        context.countOfMonths(status.combinedMonths),
     )
+    status.originalInstalled && status.notificationAccessEnabled ->
+        context.getString(R.string.bitchord_bridge_live_active)
     status.originalInstalled -> context.getString(R.string.bitchord_bridge_subtitle_installed)
     else -> context.getString(R.string.bitchord_bridge_subtitle)
 }

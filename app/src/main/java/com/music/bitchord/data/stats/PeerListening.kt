@@ -82,6 +82,25 @@ object PeerListening {
         }.orEmpty()
     }
 
+    /** Returns [deviceId]'s stored copy of [month], if present and valid. */
+    fun bucket(deviceId: String, month: String): StoredBucket? = synchronized(lock) {
+        if (!ready) return null
+        val file = File(File(root, deviceId), "$month.json")
+        if (!file.exists()) return null
+        runCatching { BucketMath.decode(file.readBytes()) }.getOrNull()
+    }
+
+    /** Returns every stored month bucket owned by [deviceId]. */
+    fun deviceBuckets(deviceId: String): List<StoredBucket> = synchronized(lock) {
+        if (!ready) return emptyList()
+        val peer = readIndex(File(root, deviceId)) ?: return emptyList()
+        peer.months.keys.sorted().mapNotNull { m ->
+            val file = File(File(root, deviceId), "$m.json")
+            if (!file.exists()) return@mapNotNull null
+            runCatching { BucketMath.decode(file.readBytes()) }.getOrNull()
+        }
+    }
+
     /**
      * Replaces [deviceId]'s copy of [month] with [bytes] (a month as
      * [BucketMath.canonicalBytes] wrote it) and records [md5] against it.

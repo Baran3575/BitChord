@@ -1630,4 +1630,15 @@
     <string name="bitchord_bridge_sync_failed">Sinkronisasi jembatan gagal: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$dj %2$dm</string>
     <string name="bitchord_bridge_duration_m">%1$dm</string>
+
+    <string name="bitchord_bridge_live_service_label">Jembatan Langsung BitChord+</string>
+    <string name="bitchord_bridge_live_active">Pelacakan langsung aktif: pemutaran di BitChord disinkronkan otomatis.</string>
+    <string name="bitchord_bridge_live_inactive">Pelacakan langsung nonaktif — beri Akses Notifikasi agar pemutaran BitChord terekam otomatis.</string>
+    <string name="bitchord_bridge_enable_live">Aktifkan pelacakan langsung</string>
+    <string name="bitchord_bridge_banner_title">Bawa Replay BitChord ke sini</string>
+    <string name="bitchord_bridge_banner_body">Aktifkan Pelacakan Langsung untuk pemutaran baru, dan impor file cadangan sekali saja untuk riwayat &amp; album lama.</string>
+    <string name="bitchord_bridge_prompt_title">Hubungkan BitChord asli</string>
+    <string name="bitchord_bridge_prompt_body">BitChord asli terpasang di perangkat ini. Beri Akses Notifikasi untuk merekam otomatis, lalu impor cadangan untuk riwayat lama.</string>
+    <string name="bitchord_bridge_not_now">Nanti</string>
+    <string name="bitchord_bridge_dismiss">Tutup</string>
 </resources>

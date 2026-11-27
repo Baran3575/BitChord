@@ -1530,4 +1530,15 @@
     <string name="bitchord_bridge_sync_failed">Bridge sync failed: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
     <string name="bitchord_bridge_duration_m">%1$dm</string>
+
+    <string name="bitchord_bridge_live_service_label">BitChord+ Live Bridge</string>
+    <string name="bitchord_bridge_live_active">Live tracking active: listens in BitChord sync automatically.</string>
+    <string name="bitchord_bridge_live_inactive">Live tracking off — grant Notification Access so new BitChord plays sync automatically.</string>
+    <string name="bitchord_bridge_enable_live">Enable live tracking</string>
+    <string name="bitchord_bridge_banner_title">Bring your BitChord Replay here</string>
+    <string name="bitchord_bridge_banner_body">Turn on Live Tracking for new plays in original BitChord, and import a one-time backup file for your past listening time &amp; top albums.</string>
+    <string name="bitchord_bridge_prompt_title">Connect original BitChord</string>
+    <string name="bitchord_bridge_prompt_body">Original BitChord is installed on this device. Grant Notification Access to record new BitChord plays automatically, and optionally import a backup file for your past listening history.</string>
+    <string name="bitchord_bridge_not_now">Not now</string>
+    <string name="bitchord_bridge_dismiss">Dismiss</string>
 </resources>

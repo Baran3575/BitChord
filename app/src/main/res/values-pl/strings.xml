@@ -1696,4 +1696,15 @@
     <string name="bitchord_bridge_sync_failed">Synchronizacja mostu nie powiodła się: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$dh %2$dm</string>
     <string name="bitchord_bridge_duration_m">%1$dm</string>
+
+    <string name="bitchord_bridge_live_service_label">Most na żywo BitChord+</string>
+    <string name="bitchord_bridge_live_active">Śledzenie na żywo aktywne: odtwarzanie w BitChord synchronizuje się automatycznie.</string>
+    <string name="bitchord_bridge_live_inactive">Śledzenie na żywo wyłączone — przyznaj dostęp do powiadomień, aby automatycznie rejestrować BitChord.</string>
+    <string name="bitchord_bridge_enable_live">Włącz śledzenie na żywo</string>
+    <string name="bitchord_bridge_banner_title">Przenieś swoje BitChord Replay</string>
+    <string name="bitchord_bridge_banner_body">Włącz śledzenie na żywo dla nowych odtworzeń i zaimportuj kopię zapasową dla dawnej historii oraz albumów.</string>
+    <string name="bitchord_bridge_prompt_title">Połącz oryginalny BitChord</string>
+    <string name="bitchord_bridge_prompt_body">Oryginalny BitChord jest zainstalowany. Przyznaj dostęp do powiadomień do automatycznego zapisu i opcjonalnie wczytaj starszą kopię.</string>
+    <string name="bitchord_bridge_not_now">Nie teraz</string>
+    <string name="bitchord_bridge_dismiss">Zamknij</string>
 </resources>

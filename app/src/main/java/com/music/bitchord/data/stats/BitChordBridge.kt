@@ -1,15 +1,18 @@
 package com.music.bitchord.data.stats
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
+import android.provider.Settings
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import kotlinx.coroutines.CoroutineScope
@@ -28,33 +31,39 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
+import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
+import java.util.Locale
 
 /**
- * Non-destructive bridge between original BitChord ([ORIGINAL_PACKAGE_ID])
+ * Hybrid non-destructive bridge between original BitChord ([ORIGINAL_PACKAGE_ID])
  * and BitChord+ (`com.music.bitchord.plus`).
  *
- * Original BitChord runs in its own signed Android sandbox, so BitChord+ reads
- * only user-granted documents (a picked `bitchord-backup-*.json` file or a
- * persistent SAF folder) and folds its monthly [StoredBucket]s into
- * [PeerListening] under [BRIDGE_PEER_ID].
- *
- * Putting the bridged months into [PeerListening] rather than calling
- * [ListeningStats.importAll] avoids two traps:
- * 1. Re-importing a newer BitChord backup never double-counts plays and never
- *    erases months played in BitChord+.
- * 2. BitChord+'s own settings, credentials, and BetterLyrics/PaxSenix keys stay
- *    intact unless the listener explicitly opts to import preferences too.
+ * Combines two complementary Android-sanctioned channels without ever bypassing
+ * sandboxes or wiping local BitChord+ data:
+ * 1. **Historical backup merge ([BRIDGE_PEER_ID])**: Imports exported
+ *    `bitchord-backup-*.json` files (manually or automatically from a linked
+ *    SAF folder) into [PeerListening] so historical listening time, top songs,
+ *    top artists, and top albums appear in Replay cleanly.
+ * 2. **Live MediaSession tracking ([LIVE_PEER_ID])**: Once Notification Access
+ *    is granted, [BitChordLiveBridgeService] watches playback from original
+ *    BitChord in real time and folds ongoing minutes, plays, artists, and
+ *    albums into [PeerListening] automatically.
  */
 object BitChordBridge {
 
     const val ORIGINAL_PACKAGE_ID = "com.music.bitchord"
     const val BRIDGE_PEER_ID = "bitchord-original"
     const val BRIDGE_PEER_NAME = "BitChord"
-    val PROTECTED_PEER_IDS: Set<String> = setOf(BRIDGE_PEER_ID)
+    const val LIVE_PEER_ID = "bitchord-live"
+    const val LIVE_PEER_NAME = "BitChord (Live)"
+    val PROTECTED_PEER_IDS: Set<String> = setOf(BRIDGE_PEER_ID, LIVE_PEER_ID)
 
     private const val STATE_FILE_NAME = "bitchord-bridge.json"
     private const val AUTO_SYNC_INTERVAL_MS = 60_000L
     private const val MAX_BACKUP_BYTES = 32L * 1024L * 1024L
+    private const val UNIT_SEPARATOR = 31
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -72,11 +81,17 @@ object BitChordBridge {
         val lastExportedAt: String? = null,
         val bridgedMonths: Int = 0,
         val bridgedTotalMs: Long = 0L,
+        val liveMonths: Int = 0,
+        val liveTotalMs: Long = 0L,
+        val liveLastEventAt: Long = 0L,
+        val promptDismissed: Boolean = false,
+        val bannerDismissed: Boolean = false,
         val lastError: String? = null,
     )
 
     data class BridgeStatus(
         val originalInstalled: Boolean = false,
+        val notificationAccessEnabled: Boolean = false,
         val linkedFolderUri: String? = null,
         val linkedFolderLabel: String? = null,
         val lastSyncedAt: Long = 0L,
@@ -86,10 +101,19 @@ object BitChordBridge {
         val lastExportedAt: String? = null,
         val bridgedMonths: Int = 0,
         val bridgedTotalMs: Long = 0L,
+        val liveMonths: Int = 0,
+        val liveTotalMs: Long = 0L,
+        val liveLastEventAt: Long = 0L,
+        val promptDismissed: Boolean = false,
+        val bannerDismissed: Boolean = false,
         val lastError: String? = null,
     ) {
         val hasLinkedFolder: Boolean get() = !linkedFolderUri.isNullOrBlank()
-        val hasBridgedData: Boolean get() = bridgedMonths > 0 || bridgedTotalMs > 0L
+        val hasHistoricalBackup: Boolean get() = bridgedMonths > 0 || bridgedTotalMs > 0L
+        val hasLiveStats: Boolean get() = liveMonths > 0 || liveTotalMs > 0L
+        val hasBridgedData: Boolean get() = hasHistoricalBackup || hasLiveStats
+        val combinedTotalMs: Long get() = bridgedTotalMs + liveTotalMs
+        val combinedMonths: Int get() = maxOf(bridgedMonths, liveMonths)
     }
 
     data class ImportResult(
@@ -121,6 +145,9 @@ object BitChordBridge {
     private var originalInstalled: Boolean = false
 
     @Volatile
+    private var notificationAccessEnabled: Boolean = false
+
+    @Volatile
     private var state: BridgeState = BridgeState()
 
     private val _status = MutableStateFlow(BridgeStatus())
@@ -128,10 +155,10 @@ object BitChordBridge {
 
     fun init(app: Application) {
         initForTesting(app.filesDir)
-        refreshInstalledState(app)
+        refreshSystemState(app)
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
-                refreshInstalledState(app)
+                refreshSystemState(app)
                 val uriString = state.linkedFolderUri ?: return
                 val now = System.currentTimeMillis()
                 if (now - lastAutoSyncAttemptAt < AUTO_SYNC_INTERVAL_MS) return
@@ -156,17 +183,22 @@ object BitChordBridge {
                 BridgeState()
             }
             originalInstalled = false
+            notificationAccessEnabled = false
             lastAutoSyncAttemptAt = 0L
             emitStatus()
         }
     }
 
-    /** Updates whether original BitChord ([ORIGINAL_PACKAGE_ID]) is installed on this device. */
+    /** Updates whether original BitChord is installed and whether Notification Access is granted. */
     fun refreshInstalledState(context: Context): Boolean {
-        val installed = isOriginalAppInstalled(context)
-        originalInstalled = installed
+        refreshSystemState(context)
+        return originalInstalled
+    }
+
+    fun refreshSystemState(context: Context) {
+        originalInstalled = isOriginalAppInstalled(context)
+        notificationAccessEnabled = isNotificationAccessGranted(context)
         emitStatus()
-        return installed
     }
 
     /** Returns true when original BitChord (`com.music.bitchord`) is installed alongside BitChord+. */
@@ -184,6 +216,29 @@ object BitChordBridge {
         }.getOrDefault(false)
     }
 
+    /** Returns true when this app holds system Notification Listener permission for live bridging. */
+    fun isNotificationAccessGranted(context: Context): Boolean = runCatching {
+        val component = ComponentName(context, BitChordLiveBridgeService::class.java)
+        val flat = component.flattenToString()
+        val shortFlat = component.flattenToShortString()
+        val enabled = Settings.Secure.getString(
+            context.contentResolver,
+            "enabled_notification_listeners",
+        ).orEmpty()
+        enabled.split(':').any { it.equals(flat, ignoreCase = true) || it.equals(shortFlat, ignoreCase = true) }
+    }.getOrDefault(false)
+
+    /** Opens Android Notification Listener settings so the user can enable live BitChord tracking. */
+    fun openNotificationListenerSettings(context: Context): Boolean {
+        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching {
+            context.startActivity(intent)
+            true
+        }.getOrDefault(false)
+    }
+
     /** Opens original BitChord so the user can export a fresh backup file. */
     fun launchOriginalApp(context: Context): Boolean {
         if (context.packageName == ORIGINAL_PACKAGE_ID) return false
@@ -193,6 +248,14 @@ object BitChordBridge {
             context.startActivity(intent)
             true
         }.getOrDefault(false)
+    }
+
+    fun dismissStartupPrompt() {
+        updateState { it.copy(promptDismissed = true) }
+    }
+
+    fun dismissReplayBanner() {
+        updateState { it.copy(bannerDismissed = true) }
     }
 
     /**
@@ -350,6 +413,20 @@ object BitChordBridge {
             }
         }
 
+        // If a newer backup snapshot already covers everything captured live up to now,
+        // drop the temporary live partition so those plays are not counted twice.
+        val exportedMs = runCatching { Instant.parse(file.exportedAt).toEpochMilli() }.getOrNull() ?: importedAtMs
+        var liveMonths = state.liveMonths
+        var liveTotalMs = state.liveTotalMs
+        var liveLastEventAt = state.liveLastEventAt
+        if (liveLastEventAt > 0L && exportedMs >= liveLastEventAt) {
+            PeerListening.removeDevice(LIVE_PEER_ID)
+            liveMonths = 0
+            liveTotalMs = 0L
+            liveLastEventAt = 0L
+            changed = true
+        }
+
         if (changed) {
             ListeningStats.peersChanged()
         }
@@ -367,6 +444,9 @@ object BitChordBridge {
                 lastExportedAt = file.exportedAt,
                 bridgedMonths = bucketsByMonth.size,
                 bridgedTotalMs = totalMs,
+                liveMonths = liveMonths,
+                liveTotalMs = liveTotalMs,
+                liveLastEventAt = liveLastEventAt,
                 lastError = null,
             )
         }
@@ -381,9 +461,159 @@ object BitChordBridge {
         )
     }
 
-    /** Removes all bridged listening months from [PeerListening] without touching local stats. */
+    /**
+     * Records a live listening slice observed from original BitChord into [PeerListening]
+     * under [LIVE_PEER_ID], including track, artist, album, hour, and per-day breakdowns
+     * so Replay's listening time, top songs, top artists, and top albums stay current.
+     */
+    suspend fun recordLivePlayback(
+        trackId: String,
+        title: String,
+        artist: String,
+        album: String?,
+        albumId: String? = null,
+        artistId: String? = null,
+        artUrl: String? = null,
+        playedMs: Long,
+        countsAsPlay: Boolean,
+        atMs: Long = System.currentTimeMillis(),
+    ) {
+        if (playedMs <= 0L && !countsAsPlay) return
+        val cleanTitle = title.trim()
+        val cleanId = trackId.trim()
+        if (cleanTitle.isEmpty() || cleanId.isEmpty()) return
+        val cleanArtist = artist.trim()
+        val cleanAlbum = album?.trim()?.takeIf { it.isNotEmpty() }
+
+        syncMutex.withLock {
+            val at = Instant.ofEpochMilli(atMs).atZone(ZoneId.systemDefault())
+            val monthKey = YearMonth.from(at).toString()
+            val dayKey = "%04d-%02d-%02d".format(Locale.ROOT, at.year, at.monthValue, at.dayOfMonth)
+            val current = PeerListening.bucket(LIVE_PEER_ID, monthKey) ?: StoredBucket(month = monthKey)
+
+            val tracks = current.tracks.associateByTo(LinkedHashMap()) { it.id }
+            val track = tracks.getOrPut(cleanId) {
+                TrackEntry(
+                    id = cleanId,
+                    title = cleanTitle,
+                    artist = cleanArtist,
+                    album = cleanAlbum,
+                    albumId = albumId,
+                    artistId = artistId,
+                    art = artUrl,
+                )
+            }
+            track.ms += playedMs
+            track.last = atMs
+            if (track.album == null) track.album = cleanAlbum
+            if (track.albumId == null) track.albumId = albumId
+            if (track.artistId == null) track.artistId = artistId
+            if (track.art == null) track.art = artUrl
+            if (countsAsPlay) track.plays++
+            track.days.computeIfAbsent(dayKey) { DayStats() }.also { d ->
+                d.ms += playedMs
+                if (countsAsPlay) d.plays++
+            }
+
+            val trackDays = current.trackDays.orEmpty().mapValuesTo(LinkedHashMap()) { it.value.copy() }
+            trackDays.computeIfAbsent(dayKey) { DayStats() }.also { d ->
+                d.ms += playedMs
+                if (countsAsPlay) d.plays++
+            }
+
+            val artists = current.artists.associateByTo(LinkedHashMap()) { it.name.lowercase(Locale.ROOT) }
+            val artistDays = current.artistDays.orEmpty().mapValuesTo(LinkedHashMap()) { it.value.copy() }
+            ListeningStats.primaryArtist(cleanArtist)?.let { lead ->
+                ArtistFacts.noticed(lead)
+                val entry = artists.getOrPut(lead.lowercase(Locale.ROOT)) {
+                    NameEntry(name = lead, art = artUrl, id = artistId)
+                }
+                entry.ms += playedMs
+                if (countsAsPlay) entry.plays++
+                if (entry.art == null) entry.art = artUrl
+                if (entry.id == null) entry.id = artistId
+                entry.days.computeIfAbsent(dayKey) { DayStats() }.also { d ->
+                    d.ms += playedMs
+                    if (countsAsPlay) d.plays++
+                }
+                artistDays.computeIfAbsent(dayKey) { DayStats() }.also { d ->
+                    d.ms += playedMs
+                    if (countsAsPlay) d.plays++
+                }
+            }
+
+            val sep = Char(UNIT_SEPARATOR).toString()
+            fun liveAlbumKey(id: String?, name: String, artistName: String): String =
+                id ?: (name.lowercase(Locale.ROOT) + sep + artistName.lowercase(Locale.ROOT))
+
+            val albums = current.albums.associateByTo(LinkedHashMap()) {
+                liveAlbumKey(it.id, it.name, it.sub.orEmpty())
+            }
+            val albumDays = current.albumDays.orEmpty().mapValuesTo(LinkedHashMap()) { it.value.copy() }
+            if (cleanAlbum != null) {
+                val aKey = liveAlbumKey(albumId, cleanAlbum, cleanArtist)
+                val entry = albums.getOrPut(aKey) {
+                    NameEntry(name = cleanAlbum, sub = cleanArtist, art = artUrl, id = albumId)
+                }
+                entry.ms += playedMs
+                if (countsAsPlay) entry.plays++
+                if (entry.art == null) entry.art = artUrl
+                if (entry.id == null) entry.id = albumId
+                entry.days.computeIfAbsent(dayKey) { DayStats() }.also { d ->
+                    d.ms += playedMs
+                    if (countsAsPlay) d.plays++
+                }
+                albumDays.computeIfAbsent(dayKey) { DayStats() }.also { d ->
+                    d.ms += playedMs
+                    if (countsAsPlay) d.plays++
+                }
+            }
+
+            val hours = LongArray(24) { current.hours.getOrElse(it) { 0L } }
+            hours[at.hour] += playedMs
+            val days = current.days.toMutableMap()
+            days[at.dayOfMonth] = (days[at.dayOfMonth] ?: 0L) + playedMs
+
+            val updatedBucket = StoredBucket(
+                month = monthKey,
+                tracks = tracks.values.toList(),
+                artists = artists.values.toList(),
+                albums = albums.values.toList(),
+                hours = hours.toList(),
+                days = days,
+                trackDays = trackDays,
+                artistDays = artistDays,
+                albumDays = albumDays,
+            )
+
+            val canonical = BucketMath.canonicalBytes(updatedBucket)
+            val monthHash = BucketMath.hash(canonical)
+            PeerListening.putMonth(
+                deviceId = LIVE_PEER_ID,
+                name = LIVE_PEER_NAME,
+                updatedAt = atMs,
+                month = monthKey,
+                bytes = canonical,
+                md5 = monthHash,
+            )
+            ListeningStats.peersChanged()
+
+            val allLive = PeerListening.deviceBuckets(LIVE_PEER_ID)
+            val totalLiveMs = allLive.sumOf(::bucketTotalMs)
+            updateState {
+                it.copy(
+                    liveMonths = allLive.size,
+                    liveTotalMs = totalLiveMs,
+                    liveLastEventAt = maxOf(it.liveLastEventAt, atMs),
+                )
+            }
+        }
+    }
+
+    /** Removes all bridged and live BitChord stats from [PeerListening] without touching local stats. */
     fun clearBridgedStats() {
         PeerListening.removeDevice(BRIDGE_PEER_ID)
+        PeerListening.removeDevice(LIVE_PEER_ID)
         ListeningStats.peersChanged()
         updateState {
             it.copy(
@@ -394,8 +624,22 @@ object BitChordBridge {
                 lastExportedAt = null,
                 bridgedMonths = 0,
                 bridgedTotalMs = 0L,
+                liveMonths = 0,
+                liveTotalMs = 0L,
+                liveLastEventAt = 0L,
                 lastError = null,
             )
+        }
+    }
+
+    internal fun formatDuration(context: Context, totalMs: Long): String {
+        val totalMinutes = (totalMs / 60_000L).coerceAtLeast(0L)
+        val hours = totalMinutes / 60L
+        val minutes = totalMinutes % 60L
+        return if (hours > 0L) {
+            context.getString(R.string.bitchord_bridge_duration_hm, hours, minutes)
+        } else {
+            context.getString(R.string.bitchord_bridge_duration_m, minutes)
         }
     }
 
@@ -535,6 +779,7 @@ object BitChordBridge {
         val s = state
         _status.value = BridgeStatus(
             originalInstalled = originalInstalled,
+            notificationAccessEnabled = notificationAccessEnabled,
             linkedFolderUri = s.linkedFolderUri,
             linkedFolderLabel = s.linkedFolderLabel,
             lastSyncedAt = s.lastSyncedAt,
@@ -544,6 +789,11 @@ object BitChordBridge {
             lastExportedAt = s.lastExportedAt,
             bridgedMonths = s.bridgedMonths,
             bridgedTotalMs = s.bridgedTotalMs,
+            liveMonths = s.liveMonths,
+            liveTotalMs = s.liveTotalMs,
+            liveLastEventAt = s.liveLastEventAt,
+            promptDismissed = s.promptDismissed,
+            bannerDismissed = s.bannerDismissed,
             lastError = s.lastError,
         )
     }

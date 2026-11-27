@@ -1,8 +1,11 @@
 package com.music.bitchord.ui.replay
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -32,12 +35,16 @@ import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -59,13 +66,16 @@ import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.stats.ArtistFacts
+import com.music.bitchord.data.stats.BitChordBridge
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.data.stats.ReplaySummary
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
+import com.music.bitchord.ui.screens.countOfMonths
 import com.music.bitchord.ui.theme.AccentRed
+import kotlinx.coroutines.launch
 
 /** Whether the Replay page is being shown in dark mode (vs light). */
 @Composable
@@ -113,6 +123,34 @@ fun ReplayScreen(
     landingPage: ReplayStoryPage = ReplayStoryPage.INTRO,
 ) {
     val context = LocalContext.current
+    val bridgeStatus by BitChordBridge.status.collectAsStateWithLifecycle()
+    val bridgeScope = rememberCoroutineScope()
+    var bridgeFeedback by remember { mutableStateOf<String?>(null) }
+    val bridgeFilePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { source ->
+        if (source == null) return@rememberLauncherForActivityResult
+        bridgeScope.launch {
+            bridgeFeedback = BitChordBridge.importFromUri(context, source).fold(
+                onSuccess = { res ->
+                    context.getString(
+                        R.string.bitchord_bridge_import_succeeded,
+                        BitChordBridge.formatDuration(context, res.totalMs),
+                        context.countOfMonths(res.months),
+                    )
+                },
+                onFailure = { err ->
+                    context.getString(
+                        R.string.bitchord_bridge_sync_failed,
+                        err.message ?: context.getString(R.string.unknown_error),
+                    )
+                },
+            )
+        }
+    }
+    LaunchedEffect(Unit) {
+        BitChordBridge.refreshSystemState(context)
+    }
     val summary = state.summary
     val leadArtwork = summary?.songs?.firstOrNull()?.song?.thumbnailUrl
     val palette = rememberArtworkColors(leadArtwork)
@@ -175,6 +213,23 @@ fun ReplayScreen(
             contentPadding = contentPadding,
         ) {
             item("heading") { Heading(state, onPeriodChange, dark) }
+
+            val needsBridgeBanner = !bridgeStatus.bannerDismissed &&
+                (bridgeStatus.originalInstalled || (summary == null || summary.isEmpty)) &&
+                (!bridgeStatus.hasBridgedData || (bridgeStatus.originalInstalled && !bridgeStatus.notificationAccessEnabled))
+            if (needsBridgeBanner) {
+                item("bridgeBanner") {
+                    ReplayBridgeBanner(
+                        status = bridgeStatus,
+                        feedback = bridgeFeedback,
+                        dark = dark,
+                        onEnableLive = { BitChordBridge.openNotificationListenerSettings(context) },
+                        onOpenOriginal = { BitChordBridge.launchOriginalApp(context) },
+                        onPickBackup = { bridgeFilePicker.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                        onDismiss = { BitChordBridge.dismissReplayBanner() },
+                    )
+                }
+            }
 
             when {
                 state.loading && summary == null -> item("loading") {
@@ -639,6 +694,112 @@ private fun EmptyReplay(period: ReplayPeriod, dark: Boolean) {
             color = emptyColor.copy(alpha = 0.6f),
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+@Composable
+private fun ReplayBridgeBanner(
+    status: BitChordBridge.BridgeStatus,
+    feedback: String?,
+    dark: Boolean,
+    onEnableLive: () -> Unit,
+    onOpenOriginal: () -> Unit,
+    onPickBackup: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val textColor = if (dark) Color.White else Color.Black
+    val cardColor = textColor.copy(alpha = 0.08f)
+    val borderColor = textColor.copy(alpha = 0.14f)
+    val accent = MaterialTheme.colorScheme.primary
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PAGE_GUTTER + 4.dp)
+            .padding(bottom = 14.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(cardColor)
+            .border(1.dp, borderColor, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.bitchord_bridge_banner_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = textColor,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.bitchord_bridge_dismiss),
+                style = MaterialTheme.typography.labelMedium,
+                color = textColor.copy(alpha = 0.65f),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onDismiss)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+        Text(
+            text = stringResource(R.string.bitchord_bridge_banner_body),
+            style = MaterialTheme.typography.bodySmall,
+            color = textColor.copy(alpha = 0.78f),
+        )
+        if (!feedback.isNullOrBlank()) {
+            Text(
+                text = feedback,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = accent,
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (status.originalInstalled && !status.notificationAccessEnabled) {
+                TextButton(
+                    onClick = onEnableLive,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(R.string.bitchord_bridge_enable_live),
+                        color = accent,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            if (!status.hasHistoricalBackup) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (status.originalInstalled) {
+                        TextButton(
+                            onClick = onOpenOriginal,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.bitchord_bridge_open_original),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    TextButton(
+                        onClick = onPickBackup,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.bitchord_bridge_import_file),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

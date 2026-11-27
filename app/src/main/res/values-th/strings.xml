@@ -1636,4 +1636,15 @@
     <string name="bitchord_bridge_sync_failed">ซิงค์ตัวเชื่อมล้มเหลว: %1$s</string>
     <string name="bitchord_bridge_duration_hm">%1$dชม. %2$dน.</string>
     <string name="bitchord_bridge_duration_m">%1$dน.</string>
+
+    <string name="bitchord_bridge_live_service_label">ตัวเชื่อมสด BitChord+</string>
+    <string name="bitchord_bridge_live_active">เปิดติดตามสดแล้ว: การเล่นใน BitChord จะซิงค์อัตโนมัติ</string>
+    <string name="bitchord_bridge_live_inactive">ปิดติดตามสดอยู่ — อนุญาตการเข้าถึงการแจ้งเตือนเพื่อบันทึกจาก BitChord อัตโนมัติ</string>
+    <string name="bitchord_bridge_enable_live">เปิดการติดตามสด</string>
+    <string name="bitchord_bridge_banner_title">นำ BitChord Replay มาที่นี่</string>
+    <string name="bitchord_bridge_banner_body">เปิดติดตามสดสำหรับเพลงใหม่ และนำเข้าไฟล์สำรองครั้งเดียวสำหรับประวัติและอัลบั้มเก่า</string>
+    <string name="bitchord_bridge_prompt_title">เชื่อมต่อ BitChord ดั้งเดิม</string>
+    <string name="bitchord_bridge_prompt_body">พบ BitChord ดั้งเดิมในเครื่อง ให้สิทธิ์การแจ้งเตือนเพื่อบันทึกอัตโนมัติ และนำเข้าสำรองสำหรับประวัติเดิม</string>
+    <string name="bitchord_bridge_not_now">ไว้ทีหลัง</string>
+    <string name="bitchord_bridge_dismiss">ปิด</string>
 </resources>

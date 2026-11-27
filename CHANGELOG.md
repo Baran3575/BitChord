@@ -3,13 +3,15 @@
 ## [Unreleased]
 
 ### Added — BitChord Bridge
-- Added `BitChordBridge` (`app/src/main/java/com/music/bitchord/data/stats/BitChordBridge.kt`) so original BitChord (`com.music.bitchord`) listening time / Replay stats can be merged into BitChord+ (`com.music.bitchord.plus`) without overwriting BitChord+ listening months or double-counting plays.
-- Added a persistent auto-sync folder link (Storage Access Framework tree URI) that automatically detects and merges newer `bitchord-backup-*.json` exports on app resume, plus an optional toggle to also import non-secret settings and search history while keeping credentials and API keys untouched.
-- Added `<queries>` package visibility for `com.music.bitchord` so Settings can detect an installed original BitChord app and open it directly to export.
-- Protected the local `"bitchord-original"` partition during Google Drive disconnect and peer pruning in `PeerListening`, `DriveBackup`, and `ReplaySync`.
+- Added a Hybrid BitChord <-> BitChord+ Bridge combining:
+  - **Live MediaSession Bridge (`BitChordLiveBridgeService.kt`)**: When Notification Access is enabled, automatically records playback from original BitChord (`com.music.bitchord`) into Replay (`bitchord-live` peer partition) including listening duration, play counts, tracks, lead artists, and albums (with `YtMusicRepository.trackLinks` metadata enrichment).
+  - **Historical Backup & Folder Sync (`BitChordBridge.kt`)**: Non-destructively merges BitChord `bitchord-backup-*.json` exports into `files/listening-peers/bitchord-original/` (plus optional auto-sync SAF folder & non-secret settings import) without double-counting or erasing BitChord+ data.
+  - **Inline Replay & Startup Onboarding**: Added an inline BitChord Bridge card inside `ReplayScreen`, a one-time welcome dialog in `MainActivity` when original BitChord is detected, and a `<queries>` + Notification Listener service entry in `AndroidManifest.xml`.
+- Protected both `"bitchord-original"` and `"bitchord-live"` partitions during Google Drive disconnect and peer pruning in `PeerListening`, `DriveBackup`, and `ReplaySync`.
 
-### Changed — Build & ABI Splits
-- Restricted Phone and TV APK builds in `app/build.gradle.kts`, `tv/build.gradle.kts`, and `.github/workflows/release.yml` to `arm64-v8a` and `armeabi-v7a` only (`x86_64` and universal splits disabled for faster builds and smaller artifacts).
+### Changed — Phone-Only ARM Builds
+- Restricted Phone APK splits in `app/build.gradle.kts` and `.github/workflows/release.yml` to `arm64-v8a` and `armeabi-v7a` only (`isUniversalApk = false`, dropped `x86_64`).
+- Disabled Wear OS APK bundling and TV CI builds by default (`bitchord.bundleWear=false` in `gradle.properties`, `:app`-only tasks in `check.yml` / `android.yml` / `release.yml`, manual-only `tv.yml`).
 
 ## [v1.10.1] - 2026-11-24
 
